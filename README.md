@@ -1,6 +1,6 @@
 # Azure E-Commerce Lakehouse: End-to-End Data Engineering Platform
 
-[![CI Pipeline](https://github.com/harishbhavandla/ecommerce/actions/workflows/ci.yml/badge.svg)](https://github.com/harishbhavandla/ecommerce/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Azure](https://img.shields.io/badge/Azure-ADLS%20Gen2-0078D4)
 ![Architecture](https://img.shields.io/badge/Architecture-Medallion-gold)
@@ -13,7 +13,7 @@ implementing the **Medallion Architecture** (Bronze → Silver → Gold) to tran
 Brazilian Olist e-commerce data into analytics-ready business intelligence.
 
 This project demonstrates real-world data engineering practices including pipeline design,
-data quality validation, Parquet storage, SQL analytics, and Power BI dashboarding.
+data quality validation, Parquet storage, DuckDB SQL analytics, and Power BI dashboarding.
 
 ---
 
@@ -77,14 +77,39 @@ Source: [Kaggle — Olist E-Commerce](https://www.kaggle.com/datasets/olistbr/br
 | Raw | Original CSV files, never modified | CSV | `data/raw/` |
 | Bronze | Parquet + ingestion metadata | Parquet | `data/bronze/{table}/ingestion_date=` |
 | Silver | Cleaned, typed, validated | Parquet | `data/silver/{table}/` |
-| Gold | Business analytics tables | Parquet | `data/gold/{table}/` |
+| Gold | Business analytics marts for reporting | Parquet | `data/gold/{table}/` |
+
+---
+
+## Pipeline Status
+
+| Stage | Script | Status | Output |
+|---|---|---|---|
+| Bronze | `src/ingestion/bronze_ingestion.py` | Complete | 9 Parquet tables with ingestion metadata |
+| Silver | `src/transformation/silver_transformations.py` | Complete | 9 clean Parquet tables + rejected records |
+| Gold | `src/transformation/gold_transformations.py` | Complete | 9 analytics Parquet tables |
+| SQL | `sql/*.sql` | Complete | 7 DuckDB query files over Gold Parquet |
+
+### Gold Analytics Tables
+
+| Table | Business Purpose |
+|---|---|
+| `daily_sales` | Daily orders, customers, item volume, revenue, and AOV |
+| `monthly_revenue` | Monthly revenue trend, customer count, delivered orders, and review score |
+| `customer_lifetime_value` | Customer-level CLV, repeat purchase flag, order history, and reviews |
+| `product_performance` | Product/category sales, item volume, revenue, and seller coverage |
+| `seller_performance` | Seller revenue, orders, products, customers, and freight contribution |
+| `delivery_delay_analysis` | Delivery delay buckets by customer state with review impact |
+| `payment_behavior` | Payment type and installment behavior |
+| `review_score_analysis` | Review scores by comment flag, payment value, and delivery performance |
+| `regional_sales` | State/city-level sales, delivery, customers, and review metrics |
 
 ---
 
 ## Project Structure
 
 ```
-ecommerce/
+ecommerce-lakehouse/
 ├── src/
 │   ├── ingestion/          # Bronze layer pipeline
 │   ├── transformation/     # Silver and Gold pipelines
@@ -104,8 +129,8 @@ ecommerce/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/harishbhavandla/ecommerce.git
-cd ecommerce
+git clone https://github.com/harishbhavandla/ecommerce-lakehouse.git
+cd ecommerce-lakehouse
 
 # 2. Create virtual environment
 python -m venv venv
@@ -124,7 +149,26 @@ python src/transformation/silver_transformations.py
 
 # 7. Run Gold transformation    (Session 5)
 python src/transformation/gold_transformations.py
+
+# 8. Run DuckDB analytics queries
+duckdb < sql/01_revenue_trends.sql
 ```
+
+---
+
+## SQL Analytics
+
+The `sql/` folder contains DuckDB queries that read Gold Parquet files directly:
+
+| File | Focus |
+|---|---|
+| `01_revenue_trends.sql` | Daily/monthly revenue and AOV |
+| `02_customer_lifetime_value.sql` | CLV and repeat customers |
+| `03_seller_performance.sql` | Seller leaderboard and state rollups |
+| `04_product_performance.sql` | Product and category performance |
+| `05_review_analysis.sql` | Reviews, delivery delays, and customer satisfaction |
+| `06_payment_behavior.sql` | Payment type and installment behavior |
+| `07_regional_sales.sql` | State/city regional sales |
 
 ---
 
@@ -139,7 +183,9 @@ python src/transformation/gold_transformations.py
 
 ## Dashboard
 
-*Power BI screenshots — coming in Session 5*
+Power BI can connect to the Gold Parquet outputs or DuckDB query results for six reporting
+pages: Executive Overview, Revenue Trends, Customer Value, Product Performance, Seller
+Performance, and Regional Delivery Insights.
 
 ---
 
