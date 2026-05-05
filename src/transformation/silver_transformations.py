@@ -3,16 +3,21 @@ Silver Layer Transformation Pipeline
 ======================================
 Reads Bronze Parquet files, applies cleaning, type casting, deduplication,
 and data quality checks per table. Valid records → silver/, invalid → rejected/.
+Supports local filesystem and Azure Data Lake Storage Gen2.
 
 Usage:
     python src/transformation/silver_transformations.py
+    python src/transformation/silver_transformations.py --environment azure
 
 Output:
     data/silver/{table}/{table}_clean.parquet
     data/rejected/{table}/rejected_{table}.parquet
+    abfss://{container}@{account}.dfs.core.windows.net/silver/olist/{table}/...
     logs/data_quality_report.csv
 """
 
+import argparse
+import io
 import os
 import sys
 from datetime import datetime
@@ -20,6 +25,10 @@ from datetime import datetime
 import pandas as pd
 import yaml
 from loguru import logger
+
+from azure.core.exceptions import ResourceExistsError
+from azure.identity import AzureCliCredential
+from azure.storage.filedatalake import DataLakeServiceClient
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from src.utils.logger import setup_logger, write_dq_log
@@ -45,6 +54,50 @@ def load_config(path="config/config.yaml"):
         return yaml.safe_load(f)
 
 
+def get_adls_file_system_client(azure_config: dict):
+    account_name = azure_config["storage_account"]
+    container_name = azure_config["container"]
+    account_url = f"https://{account_name}.dfs.core.windows.net"
+    credential = AzureCliCredential()
+    service_client = DataLakeServiceClient(account_url=account_url, credential=credential)
+    return service_client.get_file_system_client(container_name)
+
+
+def ensure_adls_directory(file_system_client, directory_path: str) -> None:
+    current = ""
+    for part in directory_path.strip("/").split("/"):
+        current = part if not current else f"{current}/{part}"
+        directory_client = file_system_client.get_directory_client(current)
+        try:
+            directory_client.create_directory()
+        except ResourceExistsError:
+            pass
+
+
+def read_adls_parquet(file_system_client, file_path: str) -> pd.DataFrame:
+    file_client = file_system_client.get_file_client(file_path)
+    data = file_client.download_file().readall()
+    return pd.read_parquet(io.BytesIO(data))
+
+
+def write_adls_parquet(file_system_client, df: pd.DataFrame, file_path: str) -> int:
+    ensure_adls_directory(file_system_client, os.path.dirname(file_path))
+    buffer = io.BytesIO()
+    df.to_parquet(buffer, index=False, engine="pyarrow")
+    buffer.seek(0)
+    file_system_client.get_file_client(file_path).upload_data(buffer.getvalue(), overwrite=True)
+    written_df = read_adls_parquet(file_system_client, file_path)
+    return len(written_df)
+
+
+def upload_log_to_adls(file_system_client, local_log_file: str, remote_log_file: str) -> None:
+    if not os.path.exists(local_log_file):
+        return
+    ensure_adls_directory(file_system_client, os.path.dirname(remote_log_file))
+    with open(local_log_file, "rb") as f:
+        file_system_client.get_file_client(remote_log_file).upload_data(f.read(), overwrite=True)
+
+
 def read_latest_bronze(bronze_path: str, table_name: str) -> pd.DataFrame:
     """Read the most recent ingestion_date partition for a table."""
     table_dir = os.path.join(bronze_path, table_name)
@@ -57,6 +110,31 @@ def read_latest_bronze(bronze_path: str, table_name: str) -> pd.DataFrame:
     latest = os.path.join(table_dir, partitions[0])
     files = [os.path.join(latest, f) for f in os.listdir(latest) if f.endswith(".parquet")]
     return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+
+
+def read_latest_bronze_azure(file_system_client, bronze_prefix: str, table_name: str) -> pd.DataFrame:
+    """Read the most recent ingestion_date partition for a table from ADLS."""
+    table_dir = f"{bronze_prefix.strip('/')}/{table_name}"
+    partitions = set()
+    for path in file_system_client.get_paths(path=table_dir):
+        relative = path.name.replace(f"{table_dir}/", "", 1)
+        partition = relative.split("/", 1)[0]
+        if partition.startswith("ingestion_date="):
+            partitions.add(partition)
+
+    if not partitions:
+        raise FileNotFoundError(f"No ADLS Bronze partitions found for {table_name}")
+
+    latest_dir = f"{table_dir}/{sorted(partitions, reverse=True)[0]}"
+    files = [
+        path.name
+        for path in file_system_client.get_paths(path=latest_dir)
+        if path.name.endswith(".parquet")
+    ]
+    if not files:
+        raise FileNotFoundError(f"No ADLS Bronze Parquet files found for {table_name}")
+
+    return pd.concat([read_adls_parquet(file_system_client, f) for f in files], ignore_index=True)
 
 
 def drop_bronze_metadata(df: pd.DataFrame) -> pd.DataFrame:
@@ -73,6 +151,12 @@ def write_silver(df: pd.DataFrame, silver_path: str, table_name: str):
     logger.success(f"[{table_name}] ✅ Silver → {out_file} ({len(df):,} rows)")
 
 
+def write_silver_azure(df: pd.DataFrame, file_system_client, silver_prefix: str, table_name: str):
+    out_file = f"{silver_prefix.strip('/')}/{table_name}/{table_name}_clean.parquet"
+    written_rows = write_adls_parquet(file_system_client, df, out_file)
+    logger.success(f"[{table_name}] Silver -> ADLS {out_file} ({written_rows:,} rows)")
+
+
 def write_rejected(df: pd.DataFrame, rejected_path: str, table_name: str):
     if df.empty:
         return
@@ -82,6 +166,16 @@ def write_rejected(df: pd.DataFrame, rejected_path: str, table_name: str):
     df["rejection_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     df.to_parquet(out_file, index=False, engine="pyarrow")
     logger.warning(f"[{table_name}] ⚠️  Rejected {len(df):,} rows → {out_file}")
+
+
+def write_rejected_azure(df: pd.DataFrame, file_system_client, rejected_prefix: str, table_name: str):
+    if df.empty:
+        return
+    rejected_df = df.copy()
+    rejected_df["rejection_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    out_file = f"{rejected_prefix.strip('/')}/{table_name}/rejected_{table_name}.parquet"
+    written_rows = write_adls_parquet(file_system_client, rejected_df, out_file)
+    logger.warning(f"[{table_name}] Rejected {written_rows:,} rows -> ADLS {out_file}")
 
 
 def apply_dq_rule(df, log_path, table_name, rule_id, rule_desc, mask):
@@ -406,11 +500,11 @@ CLEANERS = {
 }
 
 
-def run_silver_transformations():
+def run_silver_transformations(environment: str = "local"):
     setup_logger()
 
     logger.info("=" * 60)
-    logger.info("  Silver Transformation Pipeline — Starting")
+    logger.info(f"  Silver Transformation Pipeline - Starting ({environment})")
     logger.info("=" * 60)
 
     config = load_config()
@@ -418,23 +512,51 @@ def run_silver_transformations():
     silver_path = config["paths"]["local"]["silver"]
     rejected_path = config["paths"]["local"]["rejected"]
     log_path = config["paths"]["local"]["logs"]
+    azure_config = config["paths"]["azure"]
+
+    if environment not in ["local", "azure"]:
+        raise ValueError("environment must be either 'local' or 'azure'")
+
+    os.makedirs(log_path, exist_ok=True)
 
     # Clear previous DQ report for fresh run
     dq_report_file = os.path.join(log_path, "data_quality_report.csv")
     if os.path.exists(dq_report_file):
         os.remove(dq_report_file)
 
+    file_system_client = None
+    if environment == "azure":
+        file_system_client = get_adls_file_system_client(azure_config)
+        logger.info(
+            "ADLS target    : "
+            f"abfss://{azure_config['container']}@"
+            f"{azure_config['storage_account']}.dfs.core.windows.net/"
+        )
+
     results = []
     for table_name, cleaner_fn in CLEANERS.items():
         logger.info(f"[{table_name}] Processing...")
         try:
-            raw_df = read_latest_bronze(bronze_path, table_name)
+            if environment == "azure":
+                raw_df = read_latest_bronze_azure(
+                    file_system_client, azure_config["bronze_prefix"], table_name
+                )
+            else:
+                raw_df = read_latest_bronze(bronze_path, table_name)
             logger.info(f"[{table_name}] Loaded {len(raw_df):,} Bronze rows")
 
             clean_df, rejected_df = cleaner_fn(raw_df, log_path)
 
-            write_silver(clean_df, silver_path, table_name)
-            write_rejected(rejected_df, rejected_path, table_name)
+            if environment == "azure":
+                write_silver_azure(
+                    clean_df, file_system_client, azure_config["silver_prefix"], table_name
+                )
+                write_rejected_azure(
+                    rejected_df, file_system_client, azure_config["rejected_prefix"], table_name
+                )
+            else:
+                write_silver(clean_df, silver_path, table_name)
+                write_rejected(rejected_df, rejected_path, table_name)
 
             results.append({
                 "table": table_name,
@@ -466,13 +588,32 @@ def run_silver_transformations():
     total_rejected = sum(r["rejected_rows"] for r in results)
     logger.info("-" * 70)
     logger.info(f"{'TOTAL':<35} {'':>8} {total_silver:>8,} {total_rejected:>9,}")
-    logger.info(f"📋 DQ report → {dq_report_file}")
+    logger.info(f"DQ report -> {dq_report_file}")
+
+    if environment == "azure" and file_system_client is not None:
+        remote_log_file = f"{azure_config['logs_prefix'].strip('/')}/data_quality_report.csv"
+        upload_log_to_adls(file_system_client, dq_report_file, remote_log_file)
+        logger.info(f"DQ report uploaded to ADLS: {remote_log_file}")
+
     logger.info("=" * 60)
-    logger.info("  Silver Transformation Pipeline — Complete")
+    logger.info("  Silver Transformation Pipeline - Complete")
     logger.info("=" * 60)
+
+    failed = [r for r in results if not r["status"].startswith("SUCCESS")]
+    if failed:
+        failed_tables = ", ".join(r["table"] for r in failed)
+        raise RuntimeError(f"Silver transformation failed for: {failed_tables}")
 
     return results
 
 
 if __name__ == "__main__":
-    run_silver_transformations()
+    parser = argparse.ArgumentParser(description="Run Silver transformation pipeline.")
+    parser.add_argument(
+        "--environment",
+        choices=["local", "azure"],
+        default="local",
+        help="Run against local filesystem or Azure Data Lake Storage Gen2.",
+    )
+    args = parser.parse_args()
+    run_silver_transformations(environment=args.environment)

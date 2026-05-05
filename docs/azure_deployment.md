@@ -15,6 +15,8 @@ This project deploys the Olist lakehouse into Azure using a low-cost student-acc
 | ADLS Gen2 file system | Created: `olist-lakehouse` |
 | Raw CSV upload | Complete: 9 files in `raw/olist/` |
 | Bronze ingestion | Complete: 9 Parquet tables in `bronze/olist/` |
+| Silver transformation | Complete: 9 clean Parquet tables in `silver/olist/` |
+| Rejected records | Complete: 2 rejected Parquet files in `rejected/olist/` |
 
 ## Lake Layout
 
@@ -145,9 +147,51 @@ Rows ingested: 1,550,922
 Bronze path: bronze/olist/{table}/ingestion_date=2026-05-05/
 ```
 
+## Run Silver Transformation on Azure
+
+Run the Silver pipeline against ADLS Gen2:
+
+```bash
+python src/transformation/silver_transformations.py --environment azure
+```
+
+This reads the latest Bronze partition from:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/bronze/olist/{table}/
+```
+
+And writes clean Silver Parquet files to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/silver/olist/{table}/{table}_clean.parquet
+```
+
+Rejected records are written to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/rejected/olist/{table}/
+```
+
+The DQ report is uploaded to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/logs/data_quality_report.csv
+```
+
+Latest verified run:
+
+```text
+Tables: 9/9 successful
+Clean Silver rows: 568,954
+Rejected rows: 6
+Rejected files: rejected_products.parquet, rejected_payments.parquet
+DQ rules: 25 PASS
+```
+
 ## Next Azure Milestones
 
-1. Point Silver and Gold outputs at ADLS paths.
+1. Point Gold outputs at ADLS paths.
 2. Add Azure Data Factory orchestration.
 3. Add Synapse Serverless SQL views over Gold Parquet.
 4. Connect Power BI to Synapse Serverless or Gold exports.

@@ -150,6 +150,9 @@ python src/ingestion/bronze_ingestion.py --environment azure
 # 6. Run Silver transformation  (Session 4)
 python src/transformation/silver_transformations.py
 
+# Optional: run Silver transformation against Azure ADLS Gen2
+python src/transformation/silver_transformations.py --environment azure
+
 # 7. Run Gold transformation    (Session 5)
 python src/transformation/gold_transformations.py
 
