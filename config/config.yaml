@@ -13,6 +13,10 @@ paths:
     logs: "logs"
 
   azure:
+    resource_group: "rg-ecommerce-lakehouse-dev"
+    resource_group_location: "westeurope"
+    storage_location: "italynorth"
+    storage_account: "stecomlakehousehb"
     container: "olist-lakehouse"
     raw_prefix: "raw/olist"
     bronze_prefix: "bronze/olist"

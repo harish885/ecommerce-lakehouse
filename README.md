@@ -178,6 +178,7 @@ The `sql/` folder contains DuckDB queries that read Gold Parquet files directly:
 - [Pipeline Flow](docs/pipeline_flow.md)
 - [Data Dictionary](docs/data_dictionary.md)
 - [Data Quality Rules](docs/data_quality.md)
+- [Azure Deployment Guide](docs/azure_deployment.md)
 
 ---
 
