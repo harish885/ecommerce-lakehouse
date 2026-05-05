@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+
+# Data files - never commit raw or processed data
+data/raw/
+data/bronze/
+data/silver/
+data/gold/
+data/rejected/
+*.csv
+*.parquet
+
+# Logs - generated at runtime
+logs/*.csv
+logs/*.log
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Azure credentials
+*.pem
+*.pfx
+connection_string.txt

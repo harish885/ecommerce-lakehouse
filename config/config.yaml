@@ -1,0 +1,63 @@
+project:
+  name: "Azure E-Commerce Lakehouse"
+  version: "1.0.0"
+  dataset: "olist"
+
+paths:
+  local:
+    raw: "data/raw"
+    bronze: "data/bronze"
+    silver: "data/silver"
+    gold: "data/gold"
+    rejected: "data/rejected"
+    logs: "logs"
+
+  azure:
+    container: "olist-lakehouse"
+    raw_prefix: "raw/olist"
+    bronze_prefix: "bronze/olist"
+    silver_prefix: "silver/olist"
+    gold_prefix: "gold/olist"
+    rejected_prefix: "rejected/olist"
+    logs_prefix: "logs"
+
+tables:
+  - name: customers
+    source_file: olist_customers_dataset.csv
+    primary_key: customer_id
+  - name: orders
+    source_file: olist_orders_dataset.csv
+    primary_key: order_id
+  - name: order_items
+    source_file: olist_order_items_dataset.csv
+    primary_key: [order_id, order_item_id]
+  - name: products
+    source_file: olist_products_dataset.csv
+    primary_key: product_id
+  - name: sellers
+    source_file: olist_sellers_dataset.csv
+    primary_key: seller_id
+  - name: payments
+    source_file: olist_order_payments_dataset.csv
+    primary_key: [order_id, payment_sequential]
+  - name: reviews
+    source_file: olist_order_reviews_dataset.csv
+    primary_key: review_id
+  - name: geolocation
+    source_file: olist_geolocation_dataset.csv
+    primary_key: geolocation_zip_code_prefix
+  - name: product_category_translation
+    source_file: product_category_name_translation.csv
+    primary_key: product_category_name
+
+bronze:
+  partition_column: ingestion_date
+  file_format: parquet
+  add_metadata: true
+
+silver:
+  file_format: parquet
+  reject_invalid_records: true
+
+gold:
+  file_format: parquet
