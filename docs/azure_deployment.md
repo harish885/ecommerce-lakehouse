@@ -6,44 +6,14 @@ This project deploys the Olist lakehouse into Azure using a low-cost student-acc
 
 | Item | Status |
 |---|---|
-| Subscription | `Azure for Students` |
-| Tenant | `Universita Cattolica Sacro Cuore - ICATT` |
+| Subscription | `Azure subscription 1` |
+| Tenant | `Default Directory` |
 | Resource group | Created: `rg-ecommerce-lakehouse-dev` |
 | Resource group region | `westeurope` |
 | Microsoft.Storage provider | Registered |
-| Storage account | Blocked by tenant region policy |
-| Planned storage account | `stecomlakehousehb` |
-| Planned ADLS Gen2 file system | `olist-lakehouse` |
-
-## Policy Blocker
-
-The university tenant currently has conflicting region restrictions for Storage Account
-deployment:
-
-- Subscription-level policy allows: `uaenorth`, `polandcentral`, `spaincentral`,
-  `switzerlandnorth`, `austriaeast`
-- Management-group policy allows: `westeurope`, `italynorth`
-
-Because there is no overlapping region between the two policies, Azure blocks Storage Account
-creation in every tested region.
-
-Admin request:
-
-```text
-Please allow Storage Account deployment for my Azure for Students subscription in at least one
-common region, preferably italynorth or westeurope, or update the management group/subscription
-location policies so there is one overlapping allowed region for Microsoft.Storage/storageAccounts.
-
-Project resource group:
-rg-ecommerce-lakehouse-dev
-
-Target resource type:
-Microsoft.Storage/storageAccounts
-
-Reason:
-I need to create an ADLS Gen2 StorageV2 account with hierarchical namespace enabled for an
-academic Azure data engineering lakehouse project.
-```
+| Storage account | Created: `stecomlakehousehb01` |
+| ADLS Gen2 file system | Created: `olist-lakehouse` |
+| Raw CSV upload | Complete: 9 files in `raw/olist/` |
 
 ## Lake Layout
 
@@ -60,7 +30,7 @@ olist-lakehouse/
 ## Provisioning Commands
 
 ```bash
-az account set --subscription "Azure for Students"
+az account set --subscription "Azure subscription 1"
 
 az group create \
   --name rg-ecommerce-lakehouse-dev \
@@ -68,11 +38,10 @@ az group create \
 
 az provider register --namespace Microsoft.Storage
 
-# This command is currently blocked until the region policy conflict is fixed.
 az storage account create \
-  --name stecomlakehousehb \
+  --name stecomlakehousehb01 \
   --resource-group rg-ecommerce-lakehouse-dev \
-  --location italynorth \
+  --location westeurope \
   --sku Standard_LRS \
   --kind StorageV2 \
   --hns true \
@@ -80,7 +49,7 @@ az storage account create \
   --allow-blob-public-access false
 
 az storage fs create \
-  --account-name stecomlakehousehb \
+  --account-name stecomlakehousehb01 \
   --name olist-lakehouse \
   --auth-mode login
 ```
@@ -96,7 +65,48 @@ python scripts/upload_raw_to_adls.py
 The script uploads all CSV files from `data/raw/` to:
 
 ```text
-abfss://olist-lakehouse@stecomlakehousehb.dfs.core.windows.net/raw/olist/
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/raw/olist/
+```
+
+If the Python upload script cannot access Azure CLI credentials in a sandboxed environment,
+upload with Azure CLI:
+
+```bash
+for f in data/raw/*.csv; do
+  az storage fs file upload \
+    --account-name stecomlakehousehb01 \
+    --file-system olist-lakehouse \
+    --path "raw/olist/$(basename "$f")" \
+    --source "$f" \
+    --overwrite true \
+    --auth-mode login
+done
+```
+
+Verify Raw files:
+
+```bash
+az storage fs file list \
+  --account-name stecomlakehousehb01 \
+  --file-system olist-lakehouse \
+  --path raw/olist \
+  --auth-mode login \
+  --query "[].{name:name, size:contentLength}" \
+  --output table
+```
+
+Expected files:
+
+```text
+raw/olist/olist_customers_dataset.csv
+raw/olist/olist_geolocation_dataset.csv
+raw/olist/olist_order_items_dataset.csv
+raw/olist/olist_order_payments_dataset.csv
+raw/olist/olist_order_reviews_dataset.csv
+raw/olist/olist_orders_dataset.csv
+raw/olist/olist_products_dataset.csv
+raw/olist/olist_sellers_dataset.csv
+raw/olist/product_category_name_translation.csv
 ```
 
 ## Next Azure Milestones
