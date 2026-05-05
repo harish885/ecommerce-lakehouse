@@ -144,6 +144,9 @@ pip install -r requirements.txt
 # 5. Run Bronze ingestion
 python src/ingestion/bronze_ingestion.py
 
+# Optional: run Bronze ingestion against Azure ADLS Gen2
+python src/ingestion/bronze_ingestion.py --environment azure
+
 # 6. Run Silver transformation  (Session 4)
 python src/transformation/silver_transformations.py
 

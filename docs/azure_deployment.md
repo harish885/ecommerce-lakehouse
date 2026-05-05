@@ -14,6 +14,7 @@ This project deploys the Olist lakehouse into Azure using a low-cost student-acc
 | Storage account | Created: `stecomlakehousehb01` |
 | ADLS Gen2 file system | Created: `olist-lakehouse` |
 | Raw CSV upload | Complete: 9 files in `raw/olist/` |
+| Bronze ingestion | Complete: 9 Parquet tables in `bronze/olist/` |
 
 ## Lake Layout
 
@@ -109,10 +110,44 @@ raw/olist/olist_sellers_dataset.csv
 raw/olist/product_category_name_translation.csv
 ```
 
+## Run Bronze Ingestion on Azure
+
+Run the Bronze pipeline against ADLS Gen2:
+
+```bash
+python src/ingestion/bronze_ingestion.py --environment azure
+```
+
+This reads:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/raw/olist/
+```
+
+And writes partitioned Bronze Parquet files to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/bronze/olist/{table}/ingestion_date=YYYY-MM-DD/
+```
+
+It also uploads the Bronze ingestion log to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/logs/bronze_ingestion_log.csv
+```
+
+Latest verified run:
+
+```text
+Batch ID: batch_20260505_46956c
+Tables: 9/9 successful
+Rows ingested: 1,550,922
+Bronze path: bronze/olist/{table}/ingestion_date=2026-05-05/
+```
+
 ## Next Azure Milestones
 
-1. Point the Bronze pipeline at ADLS Raw and write Bronze Parquet to ADLS.
-2. Point Silver and Gold outputs at ADLS paths.
-3. Add Azure Data Factory orchestration.
-4. Add Synapse Serverless SQL views over Gold Parquet.
-5. Connect Power BI to Synapse Serverless or Gold exports.
+1. Point Silver and Gold outputs at ADLS paths.
+2. Add Azure Data Factory orchestration.
+3. Add Synapse Serverless SQL views over Gold Parquet.
+4. Connect Power BI to Synapse Serverless or Gold exports.
