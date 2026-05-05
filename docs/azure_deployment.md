@@ -17,6 +17,7 @@ This project deploys the Olist lakehouse into Azure using a low-cost student-acc
 | Bronze ingestion | Complete: 9 Parquet tables in `bronze/olist/` |
 | Silver transformation | Complete: 9 clean Parquet tables in `silver/olist/` |
 | Rejected records | Complete: 2 rejected Parquet files in `rejected/olist/` |
+| Gold transformation | Complete: 9 analytics Parquet tables in `gold/olist/` |
 
 ## Lake Layout
 
@@ -189,9 +190,42 @@ Rejected files: rejected_products.parquet, rejected_payments.parquet
 DQ rules: 25 PASS
 ```
 
+## Run Gold Transformation on Azure
+
+Run the Gold pipeline against ADLS Gen2:
+
+```bash
+python src/transformation/gold_transformations.py --environment azure
+```
+
+This reads Silver Parquet files from:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/silver/olist/{table}/
+```
+
+And writes Gold analytics tables to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/gold/olist/{table}/{table}.parquet
+```
+
+The Gold run log is uploaded to:
+
+```text
+abfss://olist-lakehouse@stecomlakehousehb01.dfs.core.windows.net/logs/gold_transformation_log.csv
+```
+
+Latest verified run:
+
+```text
+Tables: 9/9 successful
+Gold analytics rows: 137,234
+Gold path: gold/olist/{table}/{table}.parquet
+```
+
 ## Next Azure Milestones
 
-1. Point Gold outputs at ADLS paths.
-2. Add Azure Data Factory orchestration.
-3. Add Synapse Serverless SQL views over Gold Parquet.
-4. Connect Power BI to Synapse Serverless or Gold exports.
+1. Add Azure Data Factory orchestration.
+2. Add Synapse Serverless SQL views over Gold Parquet.
+3. Connect Power BI to Synapse Serverless or Gold exports.

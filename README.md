@@ -156,6 +156,9 @@ python src/transformation/silver_transformations.py --environment azure
 # 7. Run Gold transformation    (Session 5)
 python src/transformation/gold_transformations.py
 
+# Optional: run Gold transformation against Azure ADLS Gen2
+python src/transformation/gold_transformations.py --environment azure
+
 # 8. Run DuckDB analytics queries
 duckdb < sql/01_revenue_trends.sql
 ```

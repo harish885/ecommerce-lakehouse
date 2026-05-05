@@ -2,16 +2,21 @@
 Gold Layer Transformation Pipeline
 ==================================
 Reads Silver Parquet files and creates business-ready analytics tables.
+Supports local filesystem and Azure Data Lake Storage Gen2.
 
 Usage:
     python src/transformation/gold_transformations.py
+    python src/transformation/gold_transformations.py --environment azure
 
 Output:
     data/gold/{table}/{table}.parquet
+    abfss://{container}@{account}.dfs.core.windows.net/gold/olist/{table}/{table}.parquet
     logs/gold_transformation_log.csv
 """
 
+import argparse
 import csv
+import io
 import os
 import sys
 from datetime import datetime
@@ -19,6 +24,10 @@ from datetime import datetime
 import pandas as pd
 import yaml
 from loguru import logger
+
+from azure.core.exceptions import ResourceExistsError
+from azure.identity import AzureCliCredential
+from azure.storage.filedatalake import DataLakeServiceClient
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from src.utils.logger import setup_logger
@@ -41,11 +50,60 @@ def load_config(path: str = "config/config.yaml") -> dict:
         return yaml.safe_load(f)
 
 
+def get_adls_file_system_client(azure_config: dict):
+    account_name = azure_config["storage_account"]
+    container_name = azure_config["container"]
+    account_url = f"https://{account_name}.dfs.core.windows.net"
+    credential = AzureCliCredential()
+    service_client = DataLakeServiceClient(account_url=account_url, credential=credential)
+    return service_client.get_file_system_client(container_name)
+
+
+def ensure_adls_directory(file_system_client, directory_path: str) -> None:
+    current = ""
+    for part in directory_path.strip("/").split("/"):
+        current = part if not current else f"{current}/{part}"
+        directory_client = file_system_client.get_directory_client(current)
+        try:
+            directory_client.create_directory()
+        except ResourceExistsError:
+            pass
+
+
+def read_adls_parquet(file_system_client, file_path: str) -> pd.DataFrame:
+    file_client = file_system_client.get_file_client(file_path)
+    data = file_client.download_file().readall()
+    return pd.read_parquet(io.BytesIO(data))
+
+
+def write_adls_parquet(file_system_client, df: pd.DataFrame, file_path: str) -> int:
+    ensure_adls_directory(file_system_client, os.path.dirname(file_path))
+    buffer = io.BytesIO()
+    df.to_parquet(buffer, index=False, engine="pyarrow")
+    buffer.seek(0)
+    file_system_client.get_file_client(file_path).upload_data(buffer.getvalue(), overwrite=True)
+    written_df = read_adls_parquet(file_system_client, file_path)
+    return len(written_df)
+
+
+def upload_log_to_adls(file_system_client, local_log_file: str, remote_log_file: str) -> None:
+    if not os.path.exists(local_log_file):
+        return
+    ensure_adls_directory(file_system_client, os.path.dirname(remote_log_file))
+    with open(local_log_file, "rb") as f:
+        file_system_client.get_file_client(remote_log_file).upload_data(f.read(), overwrite=True)
+
+
 def read_silver_table(silver_path: str, table_name: str) -> pd.DataFrame:
     file_path = os.path.join(silver_path, table_name, f"{table_name}_clean.parquet")
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"Silver file not found: {file_path}")
     return pd.read_parquet(file_path)
+
+
+def read_silver_table_azure(file_system_client, silver_prefix: str, table_name: str) -> pd.DataFrame:
+    file_path = f"{silver_prefix.strip('/')}/{table_name}/{table_name}_clean.parquet"
+    return read_adls_parquet(file_system_client, file_path)
 
 
 def write_gold_table(df: pd.DataFrame, gold_path: str, table_name: str) -> str:
@@ -54,6 +112,15 @@ def write_gold_table(df: pd.DataFrame, gold_path: str, table_name: str) -> str:
     out_file = os.path.join(out_dir, f"{table_name}.parquet")
     df.to_parquet(out_file, index=False, engine="pyarrow")
     logger.success(f"[{table_name}] Gold -> {out_file} ({len(df):,} rows)")
+    return out_file
+
+
+def write_gold_table_azure(
+    df: pd.DataFrame, file_system_client, gold_prefix: str, table_name: str
+) -> str:
+    out_file = f"{gold_prefix.strip('/')}/{table_name}/{table_name}.parquet"
+    written_rows = write_adls_parquet(file_system_client, df, out_file)
+    logger.success(f"[{table_name}] Gold -> ADLS {out_file} ({written_rows:,} rows)")
     return out_file
 
 
@@ -420,21 +487,34 @@ BUILDERS = {
 }
 
 
-def run_gold_transformations():
+def run_gold_transformations(environment: str = "local"):
     setup_logger()
 
     logger.info("=" * 60)
-    logger.info("  Gold Transformation Pipeline - Starting")
+    logger.info(f"  Gold Transformation Pipeline - Starting ({environment})")
     logger.info("=" * 60)
 
     config = load_config()
     silver_path = config["paths"]["local"]["silver"]
     gold_path = config["paths"]["local"]["gold"]
     log_path = config["paths"]["local"]["logs"]
+    azure_config = config["paths"]["azure"]
+
+    if environment not in ["local", "azure"]:
+        raise ValueError("environment must be either 'local' or 'azure'")
 
     log_file = os.path.join(log_path, "gold_transformation_log.csv")
     if os.path.exists(log_file):
         os.remove(log_file)
+
+    file_system_client = None
+    if environment == "azure":
+        file_system_client = get_adls_file_system_client(azure_config)
+        logger.info(
+            "ADLS target    : "
+            f"abfss://{azure_config['container']}@"
+            f"{azure_config['storage_account']}.dfs.core.windows.net/"
+        )
 
     source_tables = [
         "customers",
@@ -448,7 +528,12 @@ def run_gold_transformations():
     ]
     tables = {}
     for table_name in source_tables:
-        tables[table_name] = read_silver_table(silver_path, table_name)
+        if environment == "azure":
+            tables[table_name] = read_silver_table_azure(
+                file_system_client, azure_config["silver_prefix"], table_name
+            )
+        else:
+            tables[table_name] = read_silver_table(silver_path, table_name)
         logger.info(f"[{table_name}] Loaded {len(tables[table_name]):,} Silver rows")
 
     base = build_base_tables(tables)
@@ -457,7 +542,12 @@ def run_gold_transformations():
     for table_name in GOLD_TABLES:
         try:
             gold_df = BUILDERS[table_name](base)
-            write_gold_table(gold_df, gold_path, table_name)
+            if environment == "azure":
+                write_gold_table_azure(
+                    gold_df, file_system_client, azure_config["gold_prefix"], table_name
+                )
+            else:
+                write_gold_table(gold_df, gold_path, table_name)
             write_gold_log(log_path, table_name, len(gold_df), "SUCCESS")
             results.append({"table": table_name, "rows": len(gold_df), "status": "SUCCESS"})
         except Exception as e:
@@ -475,6 +565,12 @@ def run_gold_transformations():
     logger.info("-" * 60)
     logger.info(f"{'TOTAL':<35} {sum(r['rows'] for r in results):>10,}")
     logger.info(f"Gold log -> {log_file}")
+
+    if environment == "azure" and file_system_client is not None:
+        remote_log_file = f"{azure_config['logs_prefix'].strip('/')}/gold_transformation_log.csv"
+        upload_log_to_adls(file_system_client, log_file, remote_log_file)
+        logger.info(f"Gold log uploaded to ADLS: {remote_log_file}")
+
     logger.info("=" * 60)
     logger.info("  Gold Transformation Pipeline - Complete")
     logger.info("=" * 60)
@@ -488,4 +584,12 @@ def run_gold_transformations():
 
 
 if __name__ == "__main__":
-    run_gold_transformations()
+    parser = argparse.ArgumentParser(description="Run Gold transformation pipeline.")
+    parser.add_argument(
+        "--environment",
+        choices=["local", "azure"],
+        default="local",
+        help="Run against local filesystem or Azure Data Lake Storage Gen2.",
+    )
+    args = parser.parse_args()
+    run_gold_transformations(environment=args.environment)
