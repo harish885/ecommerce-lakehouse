@@ -1,92 +1,110 @@
 # Architecture Overview
 
-## Platform Design
+## Platform design
 
-This project implements the **Medallion Architecture** on **Azure Data Lake Storage Gen2**.
-Data flows through four progressive quality layers before reaching the analytics and reporting layer.
+This project implements the **Medallion Architecture** on **Azure Data
+Lake Storage Gen2**. Data flows through four progressive quality layers
+before reaching the BI layer (Power BI semantic model).
 
-## Azure Infrastructure
+A single `Storage` abstraction in [`src/utils/storage.py`](../src/utils/storage.py)
+fronts both the local filesystem (used during development and unit testing)
+and ADLS Gen2 (used in CI / production), so each pipeline has a single code
+path regardless of where it runs.
 
-| Resource | Name | Purpose |
-|---|---|---|
-| Resource Group | rg-ecommerce-lakehouse-dev | Container for all Azure resources |
-| Storage Account | adlsecomlakehousedev | ADLS Gen2 with hierarchical namespace enabled |
-| Container | olist-lakehouse | Root container for all data layers |
-| Region | West Europe | Closest to Milan, lowest latency |
+## Azure infrastructure
 
-## Layer Descriptions
+| Resource        | Name                          | Purpose                                       |
+|-----------------|-------------------------------|-----------------------------------------------|
+| Resource group  | `rg-ecommerce-lakehouse-dev`  | Container for all Azure resources             |
+| Storage account | `stecomlakehousehb01`         | ADLS Gen2 with hierarchical namespace enabled |
+| File system     | `olist-lakehouse`             | Root container for all data layers            |
+| Region          | `westeurope`                  | Closest to Milan, lowest latency              |
 
-### Raw Layer
-- **Path:** `raw/olist/{table}/`
-- **Format:** Original CSV files
-- **Rule:** Never modified, ever
-- **Purpose:** Immutable source of truth, audit and recovery
+## Layer descriptions
 
-### Bronze Layer
-- **Path:** `bronze/olist/{table}/ingestion_date=YYYY-MM-DD/`
-- **Format:** Parquet
-- **Added columns:** `ingestion_timestamp`, `source_file_name`, `batch_id`, `ingestion_date`
-- **Purpose:** Efficient columnar storage with full ingestion audit trail
-- **Partitioning:** Hive-style by `ingestion_date` — allows Spark/Synapse to filter by date without full scan
+### Raw
 
-### Silver Layer
-- **Path:** `silver/olist/{table}/`
-- **Format:** Parquet
-- **Transformations:** Type casting, null handling, deduplication, string standardization
-- **Rejected records:** Written to `rejected/olist/{table}/` with failure reason column
-- **Purpose:** Trusted, clean data that analysts and dashboards can rely on
+- **Path**: `raw/olist/`
+- **Format**: original CSV files
+- **Rule**: never modified — immutable source of truth
+- **Purpose**: audit and recovery anchor
 
-### Gold Layer
-- **Path:** `gold/olist/{table}/`
-- **Format:** Parquet
-- **Content:** Pre-aggregated, business-ready analytics tables
-- **Purpose:** Direct input to Power BI and SQL analytics — answers real business questions
+### Bronze
 
-## Data Flow Diagram
+- **Path**: `bronze/olist/{table}/ingestion_date=YYYY-MM-DD/`
+- **Format**: Apache Parquet
+- **Added columns**: `ingestion_timestamp`, `source_file_name`, `batch_id`, `ingestion_date`
+- **Partitioning**: Hive-style by `ingestion_date` — enables date-based partition
+  pruning in Synapse, Databricks, or Power BI incremental refresh
+- **Purpose**: efficient columnar storage with a complete ingestion audit trail
 
-```
-[Kaggle Olist CSV Files]
+### Silver
+
+- **Path**: `silver/olist/{table}/`
+- **Format**: Apache Parquet
+- **Transformations**: type casting, null handling, deduplication, string standardisation
+- **Rejected records**: written to `rejected/olist/{table}/` with `dq_failure_reason` and
+  `dq_rule_id` columns — nothing is silently dropped
+- **Purpose**: trusted, clean data that analysts and reports can rely on
+
+### Gold
+
+- **Path**: `gold/olist/{table}/`
+- **Format**: Apache Parquet
+- **Content**: nine pre-aggregated, business-ready analytics marts
+- **Purpose**: direct input to Power BI and DuckDB SQL — answers concrete business questions
+
+## Data flow
+
+```text
+[Kaggle Olist CSV files]
          │
          ▼
-[Raw Zone — ADLS Gen2]         ← Never modified
+[Raw zone — ADLS Gen2]            ← never modified
          │
          ▼
-[Bronze Layer — Parquet]       ← + ingestion metadata
+[Bronze — Parquet]                ← + ingestion metadata
          │
          ▼
-[Data Quality Checks]
+[Data quality checks — 25 rules]
     │           │
-  Pass         Fail
+   Pass        Fail
     │           │
     ▼           ▼
-[Silver]   [Rejected/]         ← Failed records stored with reason
+[Silver]   [Rejected/]            ← failed records stored with reason
     │
     ▼
-[Gold Layer — Aggregated]
-    │           │
-    ▼           ▼
-[DuckDB SQL] [Power BI]
+[Gold — aggregated marts]
+    │
+    ├──► [DuckDB SQL]             ← ad-hoc analytics
+    ├──► [Power BI semantic model]← canonical BI layer
+    └──► [Synapse Serverless]     ← optional T-SQL surface
 ```
 
-## Orchestration Design
+## Orchestration
 
-In production, **Azure Data Factory** would orchestrate each layer transition:
-- Parameterized pipelines (table name, ingestion date, batch ID)
-- ForEach activity iterating over all 9 tables
-- Linked Service connecting ADF to ADLS Gen2
-- Pipeline triggers on a daily schedule
-- Failure alerts and retry logic
+In production a managed orchestrator (Azure Data Factory, Databricks Workflows,
+or Airflow on AKS) would chain the three layers, parameterized by table name,
+ingestion date, and batch ID, with retry and alerting. This repository ships
+**GitHub Actions** as the orchestrator:
 
-In this project, Python scripts replicate identical logic locally, with the same
-parameterization pattern — making migration to ADF straightforward.
+- `ci.yml` — lint, format check, unit tests on every push / PR.
+- `azure-medallion.yml` — manual `workflow_dispatch` that authenticates to
+  Azure via OIDC (no stored secrets) and runs Bronze → Silver → Gold
+  against live ADLS Gen2.
 
-## Cost Control
+The pipeline scripts themselves are environment-agnostic — they take a
+`Storage` instance from `get_storage("local" | "azure", config)` and
+otherwise share one code path. Migrating to ADF would mean swapping the
+orchestrator, not rewriting the pipelines.
 
-| Service | Usage | Estimated Cost |
-|---|---|---|
-| ADLS Gen2 | ~500 MB data | ~$0.01/month |
-| Azure Data Factory | ~20 pipeline runs | ~$0.20 total |
-| Databricks | Not used — local PySpark | $0 |
-| Synapse Serverless | Not used — local DuckDB | $0 |
-| Power BI Desktop | Local desktop app | $0 |
-| GitHub Actions | Public repo | $0 |
+## Cost profile
+
+| Service              | Usage                  | Approximate cost |
+|----------------------|------------------------|------------------|
+| ADLS Gen2            | ~500 MB across layers   | ~$0.01 / month   |
+| GitHub Actions       | public repo            | $0               |
+| Power BI Desktop     | local Windows app      | $0               |
+| Power BI Service     | Pro workspace          | $10 / user / mo  |
+| Synapse Serverless   | optional, off by default | pay-per-query  |
+| Databricks / ADF     | not used               | $0               |

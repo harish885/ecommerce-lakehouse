@@ -1,102 +1,123 @@
-// Power Query M queries for Azure Data Lake Storage Gen2 Gold Parquet.
-// In Power BI Desktop, create one Blank Query per section below.
-// Name each query exactly as the section heading.
+// =============================================================================
+// Power Query M — Azure Data Lake Storage Gen2 Gold Parquet
+// =============================================================================
+//
+// Build steps in Power BI Desktop:
+//   1. Get data → Blank query, paste the "fnLoadGoldTable" function below.
+//   2. Create one Blank query per Gold mart (sections further down) and name
+//      each query exactly as the comment heading. They all delegate to
+//      fnLoadGoldTable so the storage account is configured in ONE place.
+//   3. Load all queries to the model.
+//
+// Permissions:
+//   The signed-in Power BI Desktop / Service identity needs at least
+//   `Storage Blob Data Reader` on the storage account.
+// =============================================================================
 
+
+// -----------------------------------------------------------------------------
+// Query name: fnLoadGoldTable
+// Reusable function — pass the Gold mart name (folder + file stem) and get back
+// the Parquet table from ADLS Gen2.
+// -----------------------------------------------------------------------------
+let
+    fnLoadGoldTable = (tableName as text) as table =>
+        let
+            StorageAccount = "stecomlakehousehb01",
+            FileSystem     = "olist-lakehouse",
+            GoldPrefix     = "gold/olist",
+            FolderPath     = GoldPrefix & "/" & tableName & "/",
+            FileName       = tableName & ".parquet",
+            Source         = AzureStorage.DataLake(
+                                "https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem
+                             ),
+            File           = Table.SelectRows(
+                                Source,
+                                each [Name] = FileName and Text.Contains([Folder Path], FolderPath)
+                             ){0}[Content],
+            Result         = Parquet.Document(File)
+        in
+            Result
+in
+    fnLoadGoldTable
+
+
+// -----------------------------------------------------------------------------
 // Query name: Daily Sales
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "daily_sales.parquet" and Text.Contains([Folder Path], GoldPrefix & "/daily_sales/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("daily_sales")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Monthly Revenue
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "monthly_revenue.parquet" and Text.Contains([Folder Path], GoldPrefix & "/monthly_revenue/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("monthly_revenue")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Customer Lifetime Value
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "customer_lifetime_value.parquet" and Text.Contains([Folder Path], GoldPrefix & "/customer_lifetime_value/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("customer_lifetime_value")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Product Performance
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "product_performance.parquet" and Text.Contains([Folder Path], GoldPrefix & "/product_performance/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("product_performance")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Seller Performance
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "seller_performance.parquet" and Text.Contains([Folder Path], GoldPrefix & "/seller_performance/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("seller_performance")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Delivery Delay Analysis
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "delivery_delay_analysis.parquet" and Text.Contains([Folder Path], GoldPrefix & "/delivery_delay_analysis/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("delivery_delay_analysis")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Payment Behavior
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "payment_behavior.parquet" and Text.Contains([Folder Path], GoldPrefix & "/payment_behavior/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("payment_behavior")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Review Score Analysis
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "review_score_analysis.parquet" and Text.Contains([Folder Path], GoldPrefix & "/review_score_analysis/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("review_score_analysis")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Regional Sales
+// -----------------------------------------------------------------------------
 let
-    StorageAccount = "stecomlakehousehb01",
-    FileSystem = "olist-lakehouse",
-    GoldPrefix = "gold/olist",
-    Source = AzureStorage.DataLake("https://" & StorageAccount & ".dfs.core.windows.net/" & FileSystem),
-    File = Table.SelectRows(Source, each [Name] = "regional_sales.parquet" and Text.Contains([Folder Path], GoldPrefix & "/regional_sales/")){0}[Content],
-    Result = Parquet.Document(File)
+    Result = fnLoadGoldTable("regional_sales")
 in
     Result

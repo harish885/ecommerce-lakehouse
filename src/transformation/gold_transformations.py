@@ -1,38 +1,64 @@
 """
 Gold Layer Transformation Pipeline
 ==================================
-Reads Silver Parquet files and creates business-ready analytics tables.
-Supports local filesystem and Azure Data Lake Storage Gen2.
+Reads cleaned Silver Parquet files and produces nine business-ready
+analytics marts that the Power BI semantic model consumes.
 
-Usage:
-    python src/transformation/gold_transformations.py
-    python src/transformation/gold_transformations.py --environment azure
+Runs identically against local filesystem and Azure Data Lake Storage Gen2
+via the `Storage` abstraction.
 
-Output:
-    data/gold/{table}/{table}.parquet
-    abfss://{container}@{account}.dfs.core.windows.net/gold/olist/{table}/{table}.parquet
-    logs/gold_transformation_log.csv
+Usage
+-----
+    python -m src.transformation.gold_transformations
+    python -m src.transformation.gold_transformations --environment azure
+
+Outputs
+-------
+    {gold_root}/{table}/{table}.parquet
+    {logs_root}/gold_transformation_log.csv
 """
 
+from __future__ import annotations
+
 import argparse
-import csv
-import io
 import os
 import sys
-from datetime import datetime
+from pathlib import Path
+from typing import Callable
 
 import pandas as pd
-import yaml
 from loguru import logger
 
-from azure.core.exceptions import ResourceExistsError
-from azure.identity import AzureCliCredential
-from azure.storage.filedatalake import DataLakeServiceClient
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from src.utils.logger import setup_logger
+from src.utils.config import load_config
+from src.utils.logger import setup_logger, write_gold_log
+from src.utils.storage import (
+    AdlsStorage,
+    LayerPaths,
+    Storage,
+    get_storage,
+)
 
-GOLD_TABLES = [
+
+# ─────────────────────────────────────────────
+# Catalog
+# ─────────────────────────────────────────────
+
+# The nine Silver tables we read.
+SOURCE_TABLES = (
+    "customers",
+    "orders",
+    "order_items",
+    "products",
+    "sellers",
+    "payments",
+    "reviews",
+    "product_category_translation",
+)
+
+# The nine Gold marts we produce, in build order.
+GOLD_TABLES = (
     "daily_sales",
     "monthly_revenue",
     "customer_lifetime_value",
@@ -42,119 +68,35 @@ GOLD_TABLES = [
     "payment_behavior",
     "review_score_analysis",
     "regional_sales",
-]
+)
 
 
-def load_config(path: str = "config/config.yaml") -> dict:
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
+# ─────────────────────────────────────────────
+# Storage glue (Silver → Gold)
+# ─────────────────────────────────────────────
 
 
-def get_adls_file_system_client(azure_config: dict):
-    account_name = azure_config["storage_account"]
-    container_name = azure_config["container"]
-    account_url = f"https://{account_name}.dfs.core.windows.net"
-    credential = AzureCliCredential()
-    service_client = DataLakeServiceClient(account_url=account_url, credential=credential)
-    return service_client.get_file_system_client(container_name)
+def _read_silver_table(storage: Storage, silver_root: str, table_name: str) -> pd.DataFrame:
+    path = f"{silver_root.rstrip('/')}/{table_name}/{table_name}_clean.parquet"
+    if not storage.exists(path):
+        raise FileNotFoundError(f"Silver file not found: {path}")
+    return storage.read_parquet(path)
 
 
-def ensure_adls_directory(file_system_client, directory_path: str) -> None:
-    current = ""
-    for part in directory_path.strip("/").split("/"):
-        current = part if not current else f"{current}/{part}"
-        directory_client = file_system_client.get_directory_client(current)
-        try:
-            directory_client.create_directory()
-        except ResourceExistsError:
-            pass
+def _write_gold_table(storage: Storage, df: pd.DataFrame, gold_root: str, table_name: str) -> str:
+    path = f"{gold_root.rstrip('/')}/{table_name}/{table_name}.parquet"
+    rows = storage.write_parquet(df, path)
+    logger.success(f"[{table_name}] Gold -> {path} ({rows:,} rows)")
+    return path
 
 
-def read_adls_parquet(file_system_client, file_path: str) -> pd.DataFrame:
-    file_client = file_system_client.get_file_client(file_path)
-    data = file_client.download_file().readall()
-    return pd.read_parquet(io.BytesIO(data))
+# ─────────────────────────────────────────────
+# Base table prep — joined, enriched intermediate frames
+# used by the Gold builders.
+# ─────────────────────────────────────────────
 
 
-def write_adls_parquet(file_system_client, df: pd.DataFrame, file_path: str) -> int:
-    ensure_adls_directory(file_system_client, os.path.dirname(file_path))
-    buffer = io.BytesIO()
-    df.to_parquet(buffer, index=False, engine="pyarrow")
-    buffer.seek(0)
-    file_system_client.get_file_client(file_path).upload_data(buffer.getvalue(), overwrite=True)
-    written_df = read_adls_parquet(file_system_client, file_path)
-    return len(written_df)
-
-
-def upload_log_to_adls(file_system_client, local_log_file: str, remote_log_file: str) -> None:
-    if not os.path.exists(local_log_file):
-        return
-    ensure_adls_directory(file_system_client, os.path.dirname(remote_log_file))
-    with open(local_log_file, "rb") as f:
-        file_system_client.get_file_client(remote_log_file).upload_data(f.read(), overwrite=True)
-
-
-def read_silver_table(silver_path: str, table_name: str) -> pd.DataFrame:
-    file_path = os.path.join(silver_path, table_name, f"{table_name}_clean.parquet")
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"Silver file not found: {file_path}")
-    return pd.read_parquet(file_path)
-
-
-def read_silver_table_azure(
-    file_system_client, silver_prefix: str, table_name: str
-) -> pd.DataFrame:
-    file_path = f"{silver_prefix.strip('/')}/{table_name}/{table_name}_clean.parquet"
-    return read_adls_parquet(file_system_client, file_path)
-
-
-def write_gold_table(df: pd.DataFrame, gold_path: str, table_name: str) -> str:
-    out_dir = os.path.join(gold_path, table_name)
-    os.makedirs(out_dir, exist_ok=True)
-    out_file = os.path.join(out_dir, f"{table_name}.parquet")
-    df.to_parquet(out_file, index=False, engine="pyarrow")
-    logger.success(f"[{table_name}] Gold -> {out_file} ({len(df):,} rows)")
-    return out_file
-
-
-def write_gold_table_azure(
-    df: pd.DataFrame, file_system_client, gold_prefix: str, table_name: str
-) -> str:
-    out_file = f"{gold_prefix.strip('/')}/{table_name}/{table_name}.parquet"
-    written_rows = write_adls_parquet(file_system_client, df, out_file)
-    logger.success(f"[{table_name}] Gold -> ADLS {out_file} ({written_rows:,} rows)")
-    return out_file
-
-
-def write_gold_log(log_path: str, table_name: str, rows_written: int, status: str, error: str = ""):
-    os.makedirs(log_path, exist_ok=True)
-    log_file = os.path.join(log_path, "gold_transformation_log.csv")
-    file_exists = os.path.isfile(log_file)
-    with open(log_file, "a", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "table_name",
-                "rows_written",
-                "status",
-                "error_message",
-                "execution_timestamp",
-            ],
-        )
-        if not file_exists:
-            writer.writeheader()
-        writer.writerow(
-            {
-                "table_name": table_name,
-                "rows_written": rows_written,
-                "status": status,
-                "error_message": error,
-                "execution_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-        )
-
-
-def add_date_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _add_purchase_date_columns(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["order_purchase_date"] = df["order_purchase_timestamp"].dt.date
     df["order_purchase_month"] = df["order_purchase_timestamp"].dt.to_period("M").astype(str)
@@ -162,24 +104,95 @@ def add_date_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def build_base_tables(tables: dict) -> dict:
-    orders = add_date_columns(tables["orders"])
-    customers = tables["customers"]
-    order_items = tables["order_items"]
-    products = tables["products"]
-    sellers = tables["sellers"]
-    payments = tables["payments"]
-    reviews = tables["reviews"]
-    translations = tables["product_category_translation"]
+def _build_product_dim(products: pd.DataFrame, translations: pd.DataFrame) -> pd.DataFrame:
+    """Add an English category name (falling back to Portuguese, then 'unknown')."""
+    dim = products.merge(translations, on="product_category_name", how="left")
+    dim["product_category_name_english"] = (
+        dim["product_category_name_english"].fillna(dim["product_category_name"]).fillna("unknown")
+    )
+    return dim
 
-    product_dim = products.merge(translations, on="product_category_name", how="left")
-    product_dim["product_category_name_english"] = (
-        product_dim["product_category_name_english"]
-        .fillna(product_dim["product_category_name"])
-        .fillna("unknown")
+
+def _aggregate_payments_by_order(payments: pd.DataFrame) -> pd.DataFrame:
+    return (
+        payments.groupby("order_id", as_index=False)
+        .agg(
+            payment_value=("payment_value", "sum"),
+            payment_count=("payment_sequential", "count"),
+            max_installments=("payment_installments", "max"),
+            payment_types=("payment_type", lambda s: ", ".join(sorted(set(s.dropna())))),
+        )
+        .fillna({"payment_value": 0})
     )
 
-    order_items_enriched = (
+
+def _aggregate_items_by_order(order_items: pd.DataFrame) -> pd.DataFrame:
+    items = (
+        order_items.groupby("order_id", as_index=False)
+        .agg(
+            items_sold=("order_item_id", "count"),
+            product_revenue=("price", "sum"),
+            freight_revenue=("freight_value", "sum"),
+        )
+        .fillna({"items_sold": 0, "product_revenue": 0, "freight_revenue": 0})
+    )
+    items["item_total_value"] = items["product_revenue"] + items["freight_revenue"]
+    return items
+
+
+def _aggregate_reviews_by_order(reviews: pd.DataFrame) -> pd.DataFrame:
+    return reviews.groupby("order_id", as_index=False).agg(
+        avg_review_score=("review_score", "mean"),
+        review_count=("review_id", "count"),
+        has_review_comment=("review_comment_message", lambda s: s.notna().any()),
+    )
+
+
+def _build_orders_enriched(
+    orders: pd.DataFrame,
+    customers: pd.DataFrame,
+    payments_by_order: pd.DataFrame,
+    items_by_order: pd.DataFrame,
+    reviews_by_order: pd.DataFrame,
+) -> pd.DataFrame:
+    enriched = (
+        orders.merge(customers, on="customer_id", how="left")
+        .merge(payments_by_order, on="order_id", how="left")
+        .merge(items_by_order, on="order_id", how="left")
+        .merge(reviews_by_order, on="order_id", how="left")
+    )
+    fill_cols = [
+        "payment_value",
+        "payment_count",
+        "items_sold",
+        "product_revenue",
+        "freight_revenue",
+        "item_total_value",
+        "review_count",
+    ]
+    enriched[fill_cols] = enriched[fill_cols].fillna(0)
+    enriched["is_delivered"] = enriched["order_status"].eq("delivered")
+    enriched["delivery_days"] = (
+        enriched["order_delivered_customer_date"] - enriched["order_purchase_timestamp"]
+    ).dt.days
+    enriched["estimated_delivery_days"] = (
+        enriched["order_estimated_delivery_date"] - enriched["order_purchase_timestamp"]
+    ).dt.days
+    enriched["delivery_delay_days"] = (
+        enriched["order_delivered_customer_date"] - enriched["order_estimated_delivery_date"]
+    ).dt.days
+    enriched["is_late_delivery"] = enriched["delivery_delay_days"].fillna(0) > 0
+    return enriched
+
+
+def _build_order_items_enriched(
+    order_items: pd.DataFrame,
+    orders: pd.DataFrame,
+    customers: pd.DataFrame,
+    product_dim: pd.DataFrame,
+    sellers: pd.DataFrame,
+) -> pd.DataFrame:
+    enriched = (
         order_items.merge(
             orders[
                 [
@@ -213,107 +226,82 @@ def build_base_tables(tables: dict) -> dict:
         )
         .merge(sellers, on="seller_id", how="left")
     )
-    order_items_enriched["item_total_value"] = (
-        order_items_enriched["price"] + order_items_enriched["freight_value"]
-    )
+    enriched["item_total_value"] = enriched["price"] + enriched["freight_value"]
+    return enriched
 
-    payment_by_order = (
-        payments.groupby("order_id", as_index=False)
-        .agg(
-            payment_value=("payment_value", "sum"),
-            payment_count=("payment_sequential", "count"),
-            max_installments=("payment_installments", "max"),
-            payment_types=("payment_type", lambda s: ", ".join(sorted(set(s.dropna())))),
-        )
-        .fillna({"payment_value": 0})
-    )
 
-    items_by_order = (
-        order_items.groupby("order_id", as_index=False)
-        .agg(
-            items_sold=("order_item_id", "count"),
-            product_revenue=("price", "sum"),
-            freight_revenue=("freight_value", "sum"),
-        )
-        .fillna({"items_sold": 0, "product_revenue": 0, "freight_revenue": 0})
-    )
-    items_by_order["item_total_value"] = (
-        items_by_order["product_revenue"] + items_by_order["freight_revenue"]
-    )
+def build_base_tables(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Produce the joined intermediate frames consumed by every Gold builder."""
+    orders = _add_purchase_date_columns(tables["orders"])
+    product_dim = _build_product_dim(tables["products"], tables["product_category_translation"])
 
-    review_by_order = reviews.groupby("order_id", as_index=False).agg(
-        avg_review_score=("review_score", "mean"),
-        review_count=("review_id", "count"),
-        has_review_comment=("review_comment_message", lambda s: s.notna().any()),
-    )
-
-    orders_enriched = (
-        orders.merge(customers, on="customer_id", how="left")
-        .merge(payment_by_order, on="order_id", how="left")
-        .merge(items_by_order, on="order_id", how="left")
-        .merge(review_by_order, on="order_id", how="left")
-    )
-    fill_cols = [
-        "payment_value",
-        "payment_count",
-        "items_sold",
-        "product_revenue",
-        "freight_revenue",
-        "item_total_value",
-        "review_count",
-    ]
-    orders_enriched[fill_cols] = orders_enriched[fill_cols].fillna(0)
-    orders_enriched["is_delivered"] = orders_enriched["order_status"].eq("delivered")
-    orders_enriched["delivery_days"] = (
-        orders_enriched["order_delivered_customer_date"]
-        - orders_enriched["order_purchase_timestamp"]
-    ).dt.days
-    orders_enriched["estimated_delivery_days"] = (
-        orders_enriched["order_estimated_delivery_date"]
-        - orders_enriched["order_purchase_timestamp"]
-    ).dt.days
-    orders_enriched["delivery_delay_days"] = (
-        orders_enriched["order_delivered_customer_date"]
-        - orders_enriched["order_estimated_delivery_date"]
-    ).dt.days
-    orders_enriched["is_late_delivery"] = orders_enriched["delivery_delay_days"].fillna(0) > 0
+    payments_by_order = _aggregate_payments_by_order(tables["payments"])
+    items_by_order = _aggregate_items_by_order(tables["order_items"])
+    reviews_by_order = _aggregate_reviews_by_order(tables["reviews"])
 
     return {
         "orders": orders,
-        "orders_enriched": orders_enriched,
-        "order_items_enriched": order_items_enriched,
-        "payments": payments,
-        "reviews": reviews,
+        "orders_enriched": _build_orders_enriched(
+            orders=orders,
+            customers=tables["customers"],
+            payments_by_order=payments_by_order,
+            items_by_order=items_by_order,
+            reviews_by_order=reviews_by_order,
+        ),
+        "order_items_enriched": _build_order_items_enriched(
+            order_items=tables["order_items"],
+            orders=orders,
+            customers=tables["customers"],
+            product_dim=product_dim,
+            sellers=tables["sellers"],
+        ),
+        "payments": tables["payments"],
+        "reviews": tables["reviews"],
     }
 
 
-def build_daily_sales(base: dict) -> pd.DataFrame:
-    orders = base["orders_enriched"]
-    daily = orders.groupby("order_purchase_date", as_index=False).agg(
-        total_orders=("order_id", "nunique"),
-        delivered_orders=("is_delivered", "sum"),
-        unique_customers=("customer_unique_id", "nunique"),
-        items_sold=("items_sold", "sum"),
-        product_revenue=("product_revenue", "sum"),
-        freight_revenue=("freight_revenue", "sum"),
-        total_payment_value=("payment_value", "sum"),
-        avg_order_value=("payment_value", "mean"),
+# ─────────────────────────────────────────────
+# Gold mart builders
+# ─────────────────────────────────────────────
+
+
+def _safe_pct(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    return (numerator / denominator.replace(0, pd.NA) * 100).round(2)
+
+
+def build_daily_sales(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    daily = (
+        base["orders_enriched"]
+        .groupby("order_purchase_date", as_index=False)
+        .agg(
+            total_orders=("order_id", "nunique"),
+            delivered_orders=("is_delivered", "sum"),
+            unique_customers=("customer_unique_id", "nunique"),
+            items_sold=("items_sold", "sum"),
+            product_revenue=("product_revenue", "sum"),
+            freight_revenue=("freight_revenue", "sum"),
+            total_payment_value=("payment_value", "sum"),
+            avg_order_value=("payment_value", "mean"),
+        )
     )
     return daily.sort_values("order_purchase_date")
 
 
-def build_monthly_revenue(base: dict) -> pd.DataFrame:
-    orders = base["orders_enriched"]
-    monthly = orders.groupby("order_purchase_month", as_index=False).agg(
-        total_orders=("order_id", "nunique"),
-        delivered_orders=("is_delivered", "sum"),
-        unique_customers=("customer_unique_id", "nunique"),
-        items_sold=("items_sold", "sum"),
-        product_revenue=("product_revenue", "sum"),
-        freight_revenue=("freight_revenue", "sum"),
-        total_payment_value=("payment_value", "sum"),
-        avg_order_value=("payment_value", "mean"),
-        avg_review_score=("avg_review_score", "mean"),
+def build_monthly_revenue(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    monthly = (
+        base["orders_enriched"]
+        .groupby("order_purchase_month", as_index=False)
+        .agg(
+            total_orders=("order_id", "nunique"),
+            delivered_orders=("is_delivered", "sum"),
+            unique_customers=("customer_unique_id", "nunique"),
+            items_sold=("items_sold", "sum"),
+            product_revenue=("product_revenue", "sum"),
+            freight_revenue=("freight_revenue", "sum"),
+            total_payment_value=("payment_value", "sum"),
+            avg_order_value=("payment_value", "mean"),
+            avg_review_score=("avg_review_score", "mean"),
+        )
     )
     monthly["revenue_per_customer"] = (
         monthly["total_payment_value"] / monthly["unique_customers"].replace(0, pd.NA)
@@ -321,38 +309,44 @@ def build_monthly_revenue(base: dict) -> pd.DataFrame:
     return monthly.sort_values("order_purchase_month")
 
 
-def build_customer_lifetime_value(base: dict) -> pd.DataFrame:
-    orders = base["orders_enriched"]
-    clv = orders.groupby("customer_unique_id", as_index=False).agg(
-        customer_state=("customer_state", "first"),
-        customer_city=("customer_city", "first"),
-        first_order_date=("order_purchase_date", "min"),
-        last_order_date=("order_purchase_date", "max"),
-        total_orders=("order_id", "nunique"),
-        delivered_orders=("is_delivered", "sum"),
-        total_items=("items_sold", "sum"),
-        total_payment_value=("payment_value", "sum"),
-        avg_order_value=("payment_value", "mean"),
-        avg_review_score=("avg_review_score", "mean"),
+def build_customer_lifetime_value(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    clv = (
+        base["orders_enriched"]
+        .groupby("customer_unique_id", as_index=False)
+        .agg(
+            customer_state=("customer_state", "first"),
+            customer_city=("customer_city", "first"),
+            first_order_date=("order_purchase_date", "min"),
+            last_order_date=("order_purchase_date", "max"),
+            total_orders=("order_id", "nunique"),
+            delivered_orders=("is_delivered", "sum"),
+            total_items=("items_sold", "sum"),
+            total_payment_value=("payment_value", "sum"),
+            avg_order_value=("payment_value", "mean"),
+            avg_review_score=("avg_review_score", "mean"),
+        )
     )
     clv["repeat_customer_flag"] = clv["total_orders"] > 1
     return clv.sort_values("total_payment_value", ascending=False)
 
 
-def build_product_performance(base: dict) -> pd.DataFrame:
-    items = base["order_items_enriched"]
-    product = items.groupby(
-        ["product_id", "product_category_name", "product_category_name_english"],
-        as_index=False,
-        dropna=False,
-    ).agg(
-        total_orders=("order_id", "nunique"),
-        total_items_sold=("order_item_id", "count"),
-        product_revenue=("price", "sum"),
-        freight_revenue=("freight_value", "sum"),
-        total_value=("item_total_value", "sum"),
-        avg_item_price=("price", "mean"),
-        unique_sellers=("seller_id", "nunique"),
+def build_product_performance(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    product = (
+        base["order_items_enriched"]
+        .groupby(
+            ["product_id", "product_category_name", "product_category_name_english"],
+            as_index=False,
+            dropna=False,
+        )
+        .agg(
+            total_orders=("order_id", "nunique"),
+            total_items_sold=("order_item_id", "count"),
+            product_revenue=("price", "sum"),
+            freight_revenue=("freight_value", "sum"),
+            total_value=("item_total_value", "sum"),
+            avg_item_price=("price", "mean"),
+            unique_sellers=("seller_id", "nunique"),
+        )
     )
     product["product_category_name_english"] = product["product_category_name_english"].fillna(
         "unknown"
@@ -360,24 +354,28 @@ def build_product_performance(base: dict) -> pd.DataFrame:
     return product.sort_values("product_revenue", ascending=False)
 
 
-def build_seller_performance(base: dict) -> pd.DataFrame:
-    items = base["order_items_enriched"]
-    seller = items.groupby(["seller_id", "seller_city", "seller_state"], as_index=False).agg(
-        total_orders=("order_id", "nunique"),
-        total_items_sold=("order_item_id", "count"),
-        product_revenue=("price", "sum"),
-        freight_revenue=("freight_value", "sum"),
-        total_value=("item_total_value", "sum"),
-        avg_item_price=("price", "mean"),
-        unique_products=("product_id", "nunique"),
-        unique_customers=("customer_unique_id", "nunique"),
+def build_seller_performance(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    seller = (
+        base["order_items_enriched"]
+        .groupby(["seller_id", "seller_city", "seller_state"], as_index=False)
+        .agg(
+            total_orders=("order_id", "nunique"),
+            total_items_sold=("order_item_id", "count"),
+            product_revenue=("price", "sum"),
+            freight_revenue=("freight_value", "sum"),
+            total_value=("item_total_value", "sum"),
+            avg_item_price=("price", "mean"),
+            unique_products=("product_id", "nunique"),
+            unique_customers=("customer_unique_id", "nunique"),
+        )
     )
     return seller.sort_values("product_revenue", ascending=False)
 
 
-def build_delivery_delay_analysis(base: dict) -> pd.DataFrame:
-    orders = base["orders_enriched"]
-    delivered = orders[orders["order_delivered_customer_date"].notna()].copy()
+def build_delivery_delay_analysis(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    delivered = base["orders_enriched"][
+        base["orders_enriched"]["order_delivered_customer_date"].notna()
+    ].copy()
     delivered["delay_status"] = pd.cut(
         delivered["delivery_delay_days"],
         bins=[-10_000, 0, 3, 7, 10_000],
@@ -394,13 +392,11 @@ def build_delivery_delay_analysis(base: dict) -> pd.DataFrame:
         avg_review_score=("avg_review_score", "mean"),
         total_payment_value=("payment_value", "sum"),
     )
-    delay["late_order_rate_pct"] = (
-        delay["late_orders"] / delay["total_orders"].replace(0, pd.NA) * 100
-    ).round(2)
+    delay["late_order_rate_pct"] = _safe_pct(delay["late_orders"], delay["total_orders"])
     return delay.sort_values(["customer_state", "delay_status"])
 
 
-def build_payment_behavior(base: dict) -> pd.DataFrame:
+def build_payment_behavior(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
     payments = base["payments"].merge(
         base["orders_enriched"][
             ["order_id", "order_purchase_month", "customer_state", "avg_review_score"]
@@ -426,7 +422,7 @@ def build_payment_behavior(base: dict) -> pd.DataFrame:
     return behavior.sort_values("total_payment_value", ascending=False)
 
 
-def build_review_score_analysis(base: dict) -> pd.DataFrame:
+def build_review_score_analysis(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
     reviews = base["reviews"].merge(
         base["orders_enriched"][
             [
@@ -451,32 +447,35 @@ def build_review_score_analysis(base: dict) -> pd.DataFrame:
         avg_delay_days=("delivery_delay_days", "mean"),
         late_orders=("is_late_delivery", "sum"),
     )
-    score["late_order_rate_pct"] = (
-        score["late_orders"] / score["total_orders"].replace(0, pd.NA) * 100
-    ).round(2)
+    score["late_order_rate_pct"] = _safe_pct(score["late_orders"], score["total_orders"])
     return score.sort_values(["review_score", "has_comment"])
 
 
-def build_regional_sales(base: dict) -> pd.DataFrame:
-    orders = base["orders_enriched"]
-    regional = orders.groupby(["customer_state", "customer_city"], as_index=False).agg(
-        total_orders=("order_id", "nunique"),
-        delivered_orders=("is_delivered", "sum"),
-        unique_customers=("customer_unique_id", "nunique"),
-        total_items=("items_sold", "sum"),
-        total_payment_value=("payment_value", "sum"),
-        avg_order_value=("payment_value", "mean"),
-        avg_review_score=("avg_review_score", "mean"),
-        avg_delivery_days=("delivery_days", "mean"),
-        late_orders=("is_late_delivery", "sum"),
+def build_regional_sales(base: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    regional = (
+        base["orders_enriched"]
+        .groupby(["customer_state", "customer_city"], as_index=False)
+        .agg(
+            total_orders=("order_id", "nunique"),
+            delivered_orders=("is_delivered", "sum"),
+            unique_customers=("customer_unique_id", "nunique"),
+            total_items=("items_sold", "sum"),
+            total_payment_value=("payment_value", "sum"),
+            avg_order_value=("payment_value", "mean"),
+            avg_review_score=("avg_review_score", "mean"),
+            avg_delivery_days=("delivery_days", "mean"),
+            late_orders=("is_late_delivery", "sum"),
+        )
     )
-    regional["late_order_rate_pct"] = (
-        regional["late_orders"] / regional["delivered_orders"].replace(0, pd.NA) * 100
-    ).round(2)
+    regional["late_order_rate_pct"] = _safe_pct(
+        regional["late_orders"], regional["delivered_orders"]
+    )
     return regional.sort_values("total_payment_value", ascending=False)
 
 
-BUILDERS = {
+# Builder registry — keyed by Gold table name.
+BuilderFn = Callable[[dict[str, pd.DataFrame]], pd.DataFrame]
+BUILDERS: dict[str, BuilderFn] = {
     "daily_sales": build_daily_sales,
     "monthly_revenue": build_monthly_revenue,
     "customer_lifetime_value": build_customer_lifetime_value,
@@ -489,88 +488,66 @@ BUILDERS = {
 }
 
 
-def run_gold_transformations(environment: str = "local"):
-    setup_logger()
+# ─────────────────────────────────────────────
+# Pipeline runner
+# ─────────────────────────────────────────────
 
+
+def run_gold_transformations(environment: str = "local") -> list[dict]:
+    setup_logger()
     logger.info("=" * 60)
     logger.info(f"  Gold Transformation Pipeline - Starting ({environment})")
     logger.info("=" * 60)
 
     config = load_config()
-    silver_path = config["paths"]["local"]["silver"]
-    gold_path = config["paths"]["local"]["gold"]
+    storage = get_storage(environment, config)
+    paths = LayerPaths.from_config(config, environment)
     log_path = config["paths"]["local"]["logs"]
-    azure_config = config["paths"]["azure"]
+    os.makedirs(log_path, exist_ok=True)
 
-    if environment not in ["local", "azure"]:
-        raise ValueError("environment must be either 'local' or 'azure'")
-
+    # Fresh gold log on every run.
     log_file = os.path.join(log_path, "gold_transformation_log.csv")
     if os.path.exists(log_file):
         os.remove(log_file)
 
-    file_system_client = None
-    if environment == "azure":
-        file_system_client = get_adls_file_system_client(azure_config)
-        logger.info(
-            "ADLS target    : "
-            f"abfss://{azure_config['container']}@"
-            f"{azure_config['storage_account']}.dfs.core.windows.net/"
-        )
+    logger.info(f"Backend        : {storage.describe}")
 
-    source_tables = [
-        "customers",
-        "orders",
-        "order_items",
-        "products",
-        "sellers",
-        "payments",
-        "reviews",
-        "product_category_translation",
-    ]
-    tables = {}
-    for table_name in source_tables:
-        if environment == "azure":
-            tables[table_name] = read_silver_table_azure(
-                file_system_client, azure_config["silver_prefix"], table_name
-            )
-        else:
-            tables[table_name] = read_silver_table(silver_path, table_name)
-        logger.info(f"[{table_name}] Loaded {len(tables[table_name]):,} Silver rows")
+    # Load every Silver source table once.
+    tables: dict[str, pd.DataFrame] = {}
+    for name in SOURCE_TABLES:
+        tables[name] = _read_silver_table(storage, paths.silver, name)
+        logger.info(f"[{name}] Loaded {len(tables[name]):,} Silver rows")
 
     base = build_base_tables(tables)
 
-    results = []
-    for table_name in GOLD_TABLES:
+    # Build each Gold mart.
+    results: list[dict] = []
+    for name in GOLD_TABLES:
         try:
-            gold_df = BUILDERS[table_name](base)
-            if environment == "azure":
-                write_gold_table_azure(
-                    gold_df, file_system_client, azure_config["gold_prefix"], table_name
-                )
-            else:
-                write_gold_table(gold_df, gold_path, table_name)
-            write_gold_log(log_path, table_name, len(gold_df), "SUCCESS")
-            results.append({"table": table_name, "rows": len(gold_df), "status": "SUCCESS"})
-        except Exception as e:
-            logger.error(f"[{table_name}] FAILED: {e}")
-            write_gold_log(log_path, table_name, 0, "FAILED", str(e))
-            results.append({"table": table_name, "rows": 0, "status": f"FAILED: {e}"})
+            gold_df = BUILDERS[name](base)
+            _write_gold_table(storage, gold_df, paths.gold, name)
+            write_gold_log(log_path, name, len(gold_df), "SUCCESS")
+            results.append({"table": name, "rows": len(gold_df), "status": "SUCCESS"})
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"[{name}] FAILED: {e}")
+            write_gold_log(log_path, name, 0, "FAILED", str(e))
+            results.append({"table": name, "rows": 0, "status": f"FAILED: {e}"})
 
+    # Summary
     logger.info("=" * 60)
     logger.info("  Gold Transformation Summary")
     logger.info("=" * 60)
-    logger.info(f"{'Gold table':<35} {'Rows':>10} {'Status'}")
-    logger.info("-" * 60)
-    for result in results:
-        logger.info(f"{result['table']:<35} {result['rows']:>10,} {result['status']}")
-    logger.info("-" * 60)
-    logger.info(f"{'TOTAL':<35} {sum(r['rows'] for r in results):>10,}")
+    logger.info(f"{'Gold table':<35} {'Rows':>12}  Status")
+    logger.info("-" * 70)
+    for r in results:
+        logger.info(f"{r['table']:<35} {r['rows']:>12,}  {r['status']}")
+    logger.info("-" * 70)
+    logger.info(f"{'TOTAL':<35} {sum(r['rows'] for r in results):>12,}")
     logger.info(f"Gold log -> {log_file}")
 
-    if environment == "azure" and file_system_client is not None:
-        remote_log_file = f"{azure_config['logs_prefix'].strip('/')}/gold_transformation_log.csv"
-        upload_log_to_adls(file_system_client, log_file, remote_log_file)
+    if isinstance(storage, AdlsStorage):
+        remote_log_file = f"{paths.logs.rstrip('/')}/gold_transformation_log.csv"
+        storage.upload_local_file(log_file, remote_log_file)
         logger.info(f"Gold log uploaded to ADLS: {remote_log_file}")
 
     logger.info("=" * 60)
@@ -579,19 +556,23 @@ def run_gold_transformations(environment: str = "local"):
 
     failed = [r for r in results if not r["status"].startswith("SUCCESS")]
     if failed:
-        failed_tables = ", ".join(r["table"] for r in failed)
-        raise RuntimeError(f"Gold transformation failed for: {failed_tables}")
-
+        raise RuntimeError(
+            "Gold transformation failed for: " + ", ".join(r["table"] for r in failed)
+        )
     return results
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Run Gold transformation pipeline.")
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run the Gold transformation pipeline.")
     parser.add_argument(
         "--environment",
         choices=["local", "azure"],
         default="local",
         help="Run against local filesystem or Azure Data Lake Storage Gen2.",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = _parse_args()
     run_gold_transformations(environment=args.environment)

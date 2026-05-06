@@ -1,22 +1,22 @@
-# Core data processing
+# ─────────────────────────────────────────────
+# Azure E-Commerce Lakehouse — Python dependencies
+# ─────────────────────────────────────────────
+
+# Data processing
 pandas==2.2.2
 pyarrow==15.0.2
 
-# Azure SDK
+# Azure SDK (ADLS Gen2 + Entra ID)
 azure-storage-file-datalake==12.15.0
-azure-identity==1.16.0
 azure-storage-blob==12.20.0
+azure-identity==1.16.0
 
-# SQL analytics
+# SQL analytics over Gold Parquet (no server required)
 duckdb==0.10.3
 
-# Dashboard
-streamlit==1.37.1
-plotly==5.24.1
-
 # Configuration
-python-dotenv==1.0.1
 pyyaml==6.0.1
+python-dotenv==1.0.1
 
 # Logging
 loguru==0.7.2
@@ -28,7 +28,3 @@ pytest-cov==5.0.0
 # Code quality
 flake8==7.0.0
 black==24.4.2
-
-# Jupyter
-jupyter==1.0.0
-ipykernel==6.29.4

@@ -1,67 +1,121 @@
-// Local fallback Power Query M queries for Gold Parquet.
-// Replace ProjectRoot with the local path to this repository on the Windows machine.
-// Example:
-// ProjectRoot = "C:\Users\harish\ecommerce-lakehouse"
+// =============================================================================
+// Power Query M — Local Gold Parquet (offline fallback)
+// =============================================================================
+//
+// Use these queries when you want to develop the report against a local copy
+// of the Gold marts (i.e. without an ADLS connection).
+//
+// Build steps in Power BI Desktop:
+//   1. Get data → Blank query, paste the "ProjectRoot" parameter below
+//      and update the value to the absolute path of the repository on
+//      your Windows machine.
+//   2. Create one Blank query per Gold mart and name it exactly as the
+//      comment heading. They all delegate to fnLoadGoldTable so the
+//      project root is configured in ONE place.
+// =============================================================================
 
+
+// -----------------------------------------------------------------------------
+// Query name: ProjectRoot
+// Update this to the absolute path to your local clone of the repo.
+// Example: "C:\Users\harish\dev\ecommerce-lakehouse"
+// -----------------------------------------------------------------------------
+"C:\path\to\ecommerce-lakehouse"
+
+
+// -----------------------------------------------------------------------------
+// Query name: fnLoadGoldTable
+// Reusable function — pass the Gold mart name and get back the Parquet table.
+// -----------------------------------------------------------------------------
+let
+    fnLoadGoldTable = (tableName as text) as table =>
+        let
+            FilePath = ProjectRoot
+                       & "\data\gold\" & tableName
+                       & "\" & tableName & ".parquet",
+            Result   = Parquet.Document(File.Contents(FilePath))
+        in
+            Result
+in
+    fnLoadGoldTable
+
+
+// -----------------------------------------------------------------------------
 // Query name: Daily Sales
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\daily_sales\daily_sales.parquet"))
+    Result = fnLoadGoldTable("daily_sales")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Monthly Revenue
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\monthly_revenue\monthly_revenue.parquet"))
+    Result = fnLoadGoldTable("monthly_revenue")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Customer Lifetime Value
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\customer_lifetime_value\customer_lifetime_value.parquet"))
+    Result = fnLoadGoldTable("customer_lifetime_value")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Product Performance
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\product_performance\product_performance.parquet"))
+    Result = fnLoadGoldTable("product_performance")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Seller Performance
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\seller_performance\seller_performance.parquet"))
+    Result = fnLoadGoldTable("seller_performance")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Delivery Delay Analysis
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\delivery_delay_analysis\delivery_delay_analysis.parquet"))
+    Result = fnLoadGoldTable("delivery_delay_analysis")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Payment Behavior
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\payment_behavior\payment_behavior.parquet"))
+    Result = fnLoadGoldTable("payment_behavior")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Review Score Analysis
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\review_score_analysis\review_score_analysis.parquet"))
+    Result = fnLoadGoldTable("review_score_analysis")
 in
     Result
 
+
+// -----------------------------------------------------------------------------
 // Query name: Regional Sales
+// -----------------------------------------------------------------------------
 let
-    ProjectRoot = "C:\path\to\ecommerce-lakehouse",
-    Result = Parquet.Document(File.Contents(ProjectRoot & "\data\gold\regional_sales\regional_sales.parquet"))
+    Result = fnLoadGoldTable("regional_sales")
 in
     Result
