@@ -1,0 +1,125 @@
+-- Power BI DAX measures for the Azure E-Commerce Lakehouse.
+-- Create these measures in a dedicated table named "Measures".
+
+Total Revenue =
+SUM ( 'Daily Sales'[total_payment_value] )
+
+Product Revenue =
+SUM ( 'Daily Sales'[product_revenue] )
+
+Freight Revenue =
+SUM ( 'Daily Sales'[freight_revenue] )
+
+Total Orders =
+SUM ( 'Daily Sales'[total_orders] )
+
+Delivered Orders =
+SUM ( 'Daily Sales'[delivered_orders] )
+
+Total Items Sold =
+SUM ( 'Daily Sales'[items_sold] )
+
+Unique Customers =
+DISTINCTCOUNT ( 'Customer Lifetime Value'[customer_unique_id] )
+
+Average Order Value =
+DIVIDE ( [Total Revenue], [Total Orders] )
+
+Revenue per Customer =
+DIVIDE ( [Total Revenue], [Unique Customers] )
+
+Delivery Completion Rate =
+DIVIDE ( [Delivered Orders], [Total Orders] )
+
+Repeat Customers =
+CALCULATE (
+    DISTINCTCOUNT ( 'Customer Lifetime Value'[customer_unique_id] ),
+    'Customer Lifetime Value'[repeat_customer_flag] = TRUE ()
+)
+
+Repeat Customer Rate =
+DIVIDE ( [Repeat Customers], [Unique Customers] )
+
+Average Review Score =
+AVERAGE ( 'Monthly Revenue'[avg_review_score] )
+
+Late Orders =
+SUM ( 'Regional Sales'[late_orders] )
+
+Regional Delivered Orders =
+SUM ( 'Regional Sales'[delivered_orders] )
+
+Late Delivery Rate =
+DIVIDE ( [Late Orders], [Regional Delivered Orders] )
+
+Average Delivery Days =
+AVERAGE ( 'Regional Sales'[avg_delivery_days] )
+
+Freight Share =
+DIVIDE ( [Freight Revenue], [Product Revenue] + [Freight Revenue] )
+
+Top Customer CLV =
+MAX ( 'Customer Lifetime Value'[total_payment_value] )
+
+Median Customer CLV =
+MEDIAN ( 'Customer Lifetime Value'[total_payment_value] )
+
+Product Count =
+DISTINCTCOUNT ( 'Product Performance'[product_id] )
+
+Seller Count =
+DISTINCTCOUNT ( 'Seller Performance'[seller_id] )
+
+Average Seller Revenue =
+AVERAGE ( 'Seller Performance'[product_revenue] )
+
+Average Product Price =
+AVERAGE ( 'Product Performance'[avg_item_price] )
+
+Payment Records =
+SUM ( 'Payment Behavior'[payment_records] )
+
+Payment Orders =
+SUM ( 'Payment Behavior'[total_orders] )
+
+Average Payment Value =
+AVERAGE ( 'Payment Behavior'[avg_payment_value] )
+
+Five Star Reviews =
+CALCULATE (
+    SUM ( 'Review Score Analysis'[review_count] ),
+    'Review Score Analysis'[review_score] = 5
+)
+
+Total Reviews =
+SUM ( 'Review Score Analysis'[review_count] )
+
+Five Star Review Rate =
+DIVIDE ( [Five Star Reviews], [Total Reviews] )
+
+Revenue Rank by State =
+RANKX (
+    ALL ( 'Regional Sales'[customer_state] ),
+    CALCULATE ( SUM ( 'Regional Sales'[total_payment_value] ) ),
+    ,
+    DESC,
+    Dense
+)
+
+Revenue Rank by Seller =
+RANKX (
+    ALL ( 'Seller Performance'[seller_id] ),
+    CALCULATE ( SUM ( 'Seller Performance'[product_revenue] ) ),
+    ,
+    DESC,
+    Dense
+)
+
+Revenue Rank by Category =
+RANKX (
+    ALL ( 'Product Performance'[product_category_name_english] ),
+    CALCULATE ( SUM ( 'Product Performance'[product_revenue] ) ),
+    ,
+    DESC,
+    Dense
+)

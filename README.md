@@ -7,11 +7,12 @@
 ![Parquet](https://img.shields.io/badge/Storage-Apache%20Parquet-50ABF1?logo=apacheparquet&logoColor=white)
 ![DuckDB](https://img.shields.io/badge/SQL-DuckDB-FFF000?logo=duckdb&logoColor=black)
 ![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![Power BI](https://img.shields.io/badge/BI-Power%20BI-F2C811?logo=powerbi&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-22863A)
 
 End-to-end cloud data engineering platform on **Azure Data Lake Storage Gen2**, implementing the **Medallion Architecture** (Bronze → Silver → Gold) to transform raw Brazilian Olist e-commerce data into analytics-ready business intelligence.
 
-**1,550,922 rows ingested · 25 data quality rules · 9 Gold analytics marts · Streamlit dashboard · 13 unit tests passing · CI/CD on GitHub Actions**
+**1,550,922 rows ingested · 25 data quality rules · 9 Gold analytics marts · Power BI reporting layer · Streamlit dashboard · 13 unit tests passing · CI/CD on GitHub Actions**
 
 ---
 
@@ -27,7 +28,8 @@ flowchart TD
     E --> G["🥇 Gold Layer · Parquet<br/>Business Analytics Marts<br/>137,234 analytics rows · 9/9 SUCCESS"]
     G --> H["🔍 DuckDB SQL<br/>7 query files"]
     G --> I["📊 Streamlit Dashboard<br/>5 executive analytics pages"]
-    G --> L["📈 Power BI Dashboard<br/>Optional reporting layer"]
+    G --> L["📈 Power BI Reporting<br/>DAX measures · ADLS queries · theme"]
+    G --> M["🏢 Synapse Serverless Views<br/>Optional BI SQL layer"]
     C --> J["📋 Ingestion Log<br/>logs/bronze_ingestion_log.csv"]
     E --> K["📋 DQ Report<br/>logs/data_quality_report.csv"]
 
@@ -60,7 +62,7 @@ flowchart TD
 | Processing       | Python 3.10, Pandas                     |
 | Storage Format   | Apache Parquet (PyArrow)                |
 | SQL Analytics    | DuckDB / Azure Synapse Serverless       |
-| Dashboarding     | Streamlit, Plotly, Power BI Desktop     |
+| Dashboarding     | Power BI Desktop, Power BI Service, Streamlit, Plotly |
 | CI/CD            | GitHub Actions (2 workflows)            |
 | Testing          | pytest — 13 unit tests, all passing     |
 | Config           | YAML (config/config.yaml)               |
@@ -177,7 +179,7 @@ duckdb < sql/01_revenue_trends.sql
 | `06_payment_behavior.sql`       | Payment type and installments      |
 | `07_regional_sales.sql`         | State/city regional breakdown      |
 
-The same queries run on **Azure Synapse Serverless SQL** by replacing the file path with an `abfss://` URI.
+The same analytical layer can also be exposed through **Azure Synapse Serverless SQL** using `sql/08_synapse_serverless_gold_views.sql`.
 
 ---
 
@@ -198,6 +200,35 @@ It includes five analytics views:
 ```bash
 streamlit run dashboard/app.py
 ```
+
+---
+
+## Power BI Reporting
+
+The `powerbi/` folder contains a complete Power BI-ready reporting package over the Gold marts:
+
+| File | Purpose |
+|------|---------|
+| `powerbi/power_query_adls_gen2.m` | Power Query M queries for ADLS Gen2 Gold Parquet |
+| `powerbi/power_query_local_gold.m` | Local fallback queries for `data/gold/` |
+| `powerbi/measures.dax` | Business DAX measures for the semantic model |
+| `powerbi/report_blueprint.md` | Six-page report design and visual specifications |
+| `powerbi/theme.json` | Branded Azure-style Power BI theme |
+| `sql/08_synapse_serverless_gold_views.sql` | Optional Synapse Serverless views over Gold Parquet |
+
+Recommended reporting path:
+
+```text
+ADLS Gen2 Gold Parquet -> Power BI Semantic Model -> Power BI Report -> Power BI Service
+```
+
+Alternative enterprise path:
+
+```text
+ADLS Gen2 Gold Parquet -> Synapse Serverless SQL Views -> Power BI
+```
+
+Power BI Desktop is a Windows application, so the final `.pbix` is assembled in Power BI Desktop using the assets in `powerbi/`.
 
 ---
 
@@ -227,6 +258,7 @@ ecommerce-lakehouse/
 │   ├── transformation/         # silver_transformations.py, gold_transformations.py
 │   └── utils/                  # logger.py
 ├── dashboard/                  # Streamlit executive dashboard
+├── powerbi/                    # Power BI queries, DAX, theme, report blueprint
 ├── sql/                        # 7 DuckDB analytics queries
 ├── tests/                      # 13 pytest unit tests
 ├── docs/                       # Architecture, data dictionary, DQ rules, Azure guide
@@ -300,16 +332,16 @@ python src/transformation/gold_transformations.py    --environment azure
 
 ---
 
-## Power BI Dashboard
+## Power BI Report Pages
 
-Six reporting pages connect directly to Gold Parquet via the Power BI Parquet connector:
+Six reporting pages connect directly to Gold Parquet or Synapse Serverless views:
 
-1. **Executive Overview** — KPI tiles: total orders, revenue, customers, avg review score
-2. **Revenue Trends** — Monthly revenue chart, daily sales heatmap, AOV over time
-3. **Customer Value** — CLV distribution, repeat vs new customer split
-4. **Product Performance** — Category revenue treemap, top product leaderboard
-5. **Seller Performance** — Seller ranking table, freight vs revenue contribution
-6. **Regional Delivery** — Brazil state choropleth, delay analysis by region
+1. **Executive Overview** — KPI tiles, daily revenue trend, monthly revenue, regional summary
+2. **Revenue Trends** — Revenue movement, order volume, AOV, customer activity
+3. **Customer Lifetime Value** — CLV distribution, repeat customers, top customer table
+4. **Product and Seller Performance** — Category share, seller leaderboard, freight contribution
+5. **Delivery and Customer Experience** — Delay buckets, review score impact, late delivery rate
+6. **Payment and Regional Sales** — Payment mix, installment behavior, city/state sales
 
 ---
 
