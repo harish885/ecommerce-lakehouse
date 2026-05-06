@@ -34,13 +34,43 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from src.utils.logger import setup_logger, write_dq_log
 
 VALID_STATES = [
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO",
-    "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI",
-    "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 ]
 VALID_ORDER_STATUSES = [
-    "delivered", "shipped", "canceled", "unavailable",
-    "processing", "invoiced", "approved", "created",
+    "delivered",
+    "shipped",
+    "canceled",
+    "unavailable",
+    "processing",
+    "invoiced",
+    "approved",
+    "created",
 ]
 VALID_PAYMENT_TYPES = ["credit_card", "boleto", "voucher", "debit_card", "not_defined"]
 
@@ -48,6 +78,7 @@ VALID_PAYMENT_TYPES = ["credit_card", "boleto", "voucher", "debit_card", "not_de
 # ─────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────
+
 
 def load_config(path="config/config.yaml"):
     with open(path) as f:
@@ -112,7 +143,9 @@ def read_latest_bronze(bronze_path: str, table_name: str) -> pd.DataFrame:
     return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
 
 
-def read_latest_bronze_azure(file_system_client, bronze_prefix: str, table_name: str) -> pd.DataFrame:
+def read_latest_bronze_azure(
+    file_system_client, bronze_prefix: str, table_name: str
+) -> pd.DataFrame:
     """Read the most recent ingestion_date partition for a table from ADLS."""
     table_dir = f"{bronze_prefix.strip('/')}/{table_name}"
     partitions = set()
@@ -168,7 +201,9 @@ def write_rejected(df: pd.DataFrame, rejected_path: str, table_name: str):
     logger.warning(f"[{table_name}] ⚠️  Rejected {len(df):,} rows → {out_file}")
 
 
-def write_rejected_azure(df: pd.DataFrame, file_system_client, rejected_prefix: str, table_name: str):
+def write_rejected_azure(
+    df: pd.DataFrame, file_system_client, rejected_prefix: str, table_name: str
+):
     if df.empty:
         return
     rejected_df = df.copy()
@@ -187,8 +222,13 @@ def apply_dq_rule(df, log_path, table_name, rule_id, rule_desc, mask):
     failed["dq_failure_reason"] = rule_desc
     failed["dq_rule_id"] = rule_id
     write_dq_log(
-        log_path, table_name, rule_id, rule_desc,
-        len(df), len(passed), len(failed),
+        log_path,
+        table_name,
+        rule_id,
+        rule_desc,
+        len(df),
+        len(passed),
+        len(failed),
     )
     if len(failed) > 0:
         logger.warning(f"[{table_name}] {rule_id}: {len(failed):,} failed — {rule_desc}")
@@ -202,6 +242,7 @@ def safe_to_datetime(series: pd.Series) -> pd.Series:
 # ─────────────────────────────────────────────
 # Per-table cleaning functions
 # ─────────────────────────────────────────────
+
 
 def clean_customers(df, log_path):
     table = "customers"
@@ -218,21 +259,36 @@ def clean_customers(df, log_path):
     rejected_frames = []
 
     # DQ-CUST-001: customer_id not null
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-CUST-001",
-                             "customer_id must not be null",
-                             df["customer_id"].notna())
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-CUST-001",
+        "customer_id must not be null",
+        df["customer_id"].notna(),
+    )
     rejected_frames.append(rej)
 
     # DQ-CUST-002: customer_unique_id not null
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-CUST-002",
-                             "customer_unique_id must not be null",
-                             df["customer_unique_id"].notna())
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-CUST-002",
+        "customer_unique_id must not be null",
+        df["customer_unique_id"].notna(),
+    )
     rejected_frames.append(rej)
 
     # DQ-CUST-003: valid state code
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-CUST-003",
-                             "customer_state must be a valid Brazilian state code",
-                             df["customer_state"].isin(VALID_STATES) | df["customer_state"].isna())
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-CUST-003",
+        "customer_state must be a valid Brazilian state code",
+        df["customer_state"].isin(VALID_STATES) | df["customer_state"].isna(),
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -246,8 +302,10 @@ def clean_orders(df, log_path, customers_df=None):
 
     # Cast timestamps
     for col in [
-        "order_purchase_timestamp", "order_approved_at",
-        "order_delivered_carrier_date", "order_delivered_customer_date",
+        "order_purchase_timestamp",
+        "order_approved_at",
+        "order_delivered_carrier_date",
+        "order_delivered_customer_date",
         "order_estimated_delivery_date",
     ]:
         if col in df.columns:
@@ -258,35 +316,47 @@ def clean_orders(df, log_path, customers_df=None):
     rejected_frames = []
 
     # DQ-ORD-001
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ORD-001",
-                             "order_id must not be null", df["order_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ORD-001", "order_id must not be null", df["order_id"].notna()
+    )
     rejected_frames.append(rej)
 
     # DQ-ORD-002
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ORD-002",
-                             "customer_id must not be null", df["customer_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ORD-002", "customer_id must not be null", df["customer_id"].notna()
+    )
     rejected_frames.append(rej)
 
     # DQ-ORD-003
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ORD-003",
-                             "order_status must be a known value",
-                             df["order_status"].isin(VALID_ORDER_STATUSES))
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-ORD-003",
+        "order_status must be a known value",
+        df["order_status"].isin(VALID_ORDER_STATUSES),
+    )
     rejected_frames.append(rej)
 
     # DQ-ORD-004
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ORD-004",
-                             "order_purchase_timestamp must not be null",
-                             df["order_purchase_timestamp"].notna())
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-ORD-004",
+        "order_purchase_timestamp must not be null",
+        df["order_purchase_timestamp"].notna(),
+    )
     rejected_frames.append(rej)
 
     # DQ-ORD-005: delivered date >= purchase date
     has_delivery = df["order_delivered_customer_date"].notna()
-    valid_dates = (
-        ~has_delivery |
-        (df["order_delivered_customer_date"] >= df["order_purchase_timestamp"])
+    valid_dates = ~has_delivery | (
+        df["order_delivered_customer_date"] >= df["order_purchase_timestamp"]
     )
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ORD-005",
-                             "delivered date must be >= purchase date", valid_dates)
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ORD-005", "delivered date must be >= purchase date", valid_dates
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -305,26 +375,34 @@ def clean_order_items(df, log_path, orders_df=None, products_df=None, sellers_df
 
     rejected_frames = []
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ITM-001",
-                             "order_id must not be null", df["order_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ITM-001", "order_id must not be null", df["order_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ITM-002",
-                             "product_id must not be null", df["product_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ITM-002", "product_id must not be null", df["product_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ITM-003",
-                             "seller_id must not be null", df["seller_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ITM-003", "seller_id must not be null", df["seller_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ITM-004",
-                             "price must be >= 0",
-                             df["price"].fillna(0) >= 0)
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-ITM-004", "price must be >= 0", df["price"].fillna(0) >= 0
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-ITM-005",
-                             "freight_value must be >= 0",
-                             df["freight_value"].fillna(0) >= 0)
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-ITM-005",
+        "freight_value must be >= 0",
+        df["freight_value"].fillna(0) >= 0,
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -337,8 +415,13 @@ def clean_products(df, log_path):
     df = df.drop_duplicates(subset=["product_id"])
 
     numeric_cols = [
-        "product_name_lenght", "product_description_lenght", "product_photos_qty",
-        "product_weight_g", "product_length_cm", "product_height_cm", "product_width_cm",
+        "product_name_lenght",
+        "product_description_lenght",
+        "product_photos_qty",
+        "product_weight_g",
+        "product_length_cm",
+        "product_height_cm",
+        "product_width_cm",
     ]
     for col in numeric_cols:
         if col in df.columns:
@@ -349,13 +432,19 @@ def clean_products(df, log_path):
 
     rejected_frames = []
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PRD-001",
-                             "product_id must not be null", df["product_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-PRD-001", "product_id must not be null", df["product_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PRD-002",
-                             "product_weight_g must be > 0 if present",
-                             df["product_weight_g"].isna() | (df["product_weight_g"] > 0))
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-PRD-002",
+        "product_weight_g must be > 0 if present",
+        df["product_weight_g"].isna() | (df["product_weight_g"] > 0),
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -375,8 +464,9 @@ def clean_sellers(df, log_path):
 
     rejected_frames = []
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-SEL-001",
-                             "seller_id must not be null", df["seller_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-SEL-001", "seller_id must not be null", df["seller_id"].notna()
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -389,29 +479,49 @@ def clean_payments(df, log_path):
     df = df.drop_duplicates()
 
     df["payment_value"] = pd.to_numeric(df["payment_value"], errors="coerce")
-    df["payment_installments"] = pd.to_numeric(df["payment_installments"], errors="coerce").astype("Int64")
-    df["payment_sequential"] = pd.to_numeric(df["payment_sequential"], errors="coerce").astype("Int64")
+    df["payment_installments"] = pd.to_numeric(df["payment_installments"], errors="coerce").astype(
+        "Int64"
+    )
+    df["payment_sequential"] = pd.to_numeric(df["payment_sequential"], errors="coerce").astype(
+        "Int64"
+    )
     df["payment_type"] = df["payment_type"].str.strip().str.lower()
 
     rejected_frames = []
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PAY-001",
-                             "order_id must not be null", df["order_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-PAY-001", "order_id must not be null", df["order_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PAY-002",
-                             "payment_value must be >= 0",
-                             df["payment_value"].fillna(0) >= 0)
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-PAY-002",
+        "payment_value must be >= 0",
+        df["payment_value"].fillna(0) >= 0,
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PAY-003",
-                             "payment_installments must be >= 1",
-                             df["payment_installments"].fillna(1) >= 1)
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-PAY-003",
+        "payment_installments must be >= 1",
+        df["payment_installments"].fillna(1) >= 1,
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-PAY-004",
-                             "payment_type must be a known value",
-                             df["payment_type"].isin(VALID_PAYMENT_TYPES))
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-PAY-004",
+        "payment_type must be a known value",
+        df["payment_type"].isin(VALID_PAYMENT_TYPES),
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -433,17 +543,24 @@ def clean_reviews(df, log_path):
 
     rejected_frames = []
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-REV-001",
-                             "review_id must not be null", df["review_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-REV-001", "review_id must not be null", df["review_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-REV-002",
-                             "order_id must not be null", df["order_id"].notna())
+    df, rej = apply_dq_rule(
+        df, log_path, table, "DQ-REV-002", "order_id must not be null", df["order_id"].notna()
+    )
     rejected_frames.append(rej)
 
-    df, rej = apply_dq_rule(df, log_path, table, "DQ-REV-003",
-                             "review_score must be between 1 and 5",
-                             df["review_score"].between(1, 5))
+    df, rej = apply_dq_rule(
+        df,
+        log_path,
+        table,
+        "DQ-REV-003",
+        "review_score must be between 1 and 5",
+        df["review_score"].between(1, 5),
+    )
     rejected_frames.append(rej)
 
     rejected = pd.concat(rejected_frames, ignore_index=True)
@@ -464,8 +581,15 @@ def clean_geolocation(df, log_path):
     df = df.drop_duplicates(subset=["geolocation_zip_code_prefix"])
 
     # Log a single pass rule
-    write_dq_log(log_path, table, "DQ-GEO-001", "geolocation_zip_code_prefix deduplication",
-                 len(df), len(df), 0)
+    write_dq_log(
+        log_path,
+        table,
+        "DQ-GEO-001",
+        "geolocation_zip_code_prefix deduplication",
+        len(df),
+        len(df),
+        0,
+    )
 
     return df, pd.DataFrame()
 
@@ -475,10 +599,11 @@ def clean_product_category_translation(df, log_path):
     df = drop_bronze_metadata(df)
     df = df.drop_duplicates()
     df["product_category_name"] = df["product_category_name"].str.strip().str.lower()
-    df["product_category_name_english"] = df["product_category_name_english"].str.strip().str.lower()
+    df["product_category_name_english"] = (
+        df["product_category_name_english"].str.strip().str.lower()
+    )
 
-    write_dq_log(log_path, table, "DQ-CAT-001", "All records valid",
-                 len(df), len(df), 0)
+    write_dq_log(log_path, table, "DQ-CAT-001", "All records valid", len(df), len(df), 0)
 
     return df, pd.DataFrame()
 
@@ -558,20 +683,27 @@ def run_silver_transformations(environment: str = "local"):
                 write_silver(clean_df, silver_path, table_name)
                 write_rejected(rejected_df, rejected_path, table_name)
 
-            results.append({
-                "table": table_name,
-                "bronze_rows": len(raw_df),
-                "silver_rows": len(clean_df),
-                "rejected_rows": len(rejected_df),
-                "status": "SUCCESS",
-            })
+            results.append(
+                {
+                    "table": table_name,
+                    "bronze_rows": len(raw_df),
+                    "silver_rows": len(clean_df),
+                    "rejected_rows": len(rejected_df),
+                    "status": "SUCCESS",
+                }
+            )
 
         except Exception as e:
             logger.error(f"[{table_name}] FAILED: {e}")
-            results.append({
-                "table": table_name, "bronze_rows": 0,
-                "silver_rows": 0, "rejected_rows": 0, "status": f"FAILED: {e}",
-            })
+            results.append(
+                {
+                    "table": table_name,
+                    "bronze_rows": 0,
+                    "silver_rows": 0,
+                    "rejected_rows": 0,
+                    "status": f"FAILED: {e}",
+                }
+            )
 
     # ── Summary ─────────────────────────────────────────────
     logger.info("=" * 60)

@@ -101,7 +101,9 @@ def read_silver_table(silver_path: str, table_name: str) -> pd.DataFrame:
     return pd.read_parquet(file_path)
 
 
-def read_silver_table_azure(file_system_client, silver_prefix: str, table_name: str) -> pd.DataFrame:
+def read_silver_table_azure(
+    file_system_client, silver_prefix: str, table_name: str
+) -> pd.DataFrame:
     file_path = f"{silver_prefix.strip('/')}/{table_name}/{table_name}_clean.parquet"
     return read_adls_parquet(file_system_client, file_path)
 
