@@ -69,6 +69,7 @@
         linear-gradient(90deg, #EFF6FF 1px, transparent 1px);
       background-size: 36px 36px;
       mask-image: linear-gradient(120deg, rgba(0,0,0,0.65), transparent 66%);
+      animation: heroGridDrift 8s linear infinite;
     }
     .hero-content { position: relative; z-index: 1; }
     .subtitle {
@@ -118,6 +119,7 @@
       font-weight: 900;
       color: #0F172A;
       margin-bottom: 13px;
+      will-change: contents;
     }
     .stat span { display: block; font-size: 14px; line-height: 1.35; color: #64748B; font-weight: 700; }
     .accent-blue { border-top: 5px solid #2563EB; }
@@ -168,7 +170,17 @@
       border: 1px solid #E2E8F0;
       background: #FFFFFF;
       box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+      animation: martSweep 6.3s ease-in-out infinite;
     }
+    .mart:nth-child(1) { animation-delay: 0s; }
+    .mart:nth-child(2) { animation-delay: 0.7s; }
+    .mart:nth-child(3) { animation-delay: 1.4s; }
+    .mart:nth-child(4) { animation-delay: 2.1s; }
+    .mart:nth-child(5) { animation-delay: 2.8s; }
+    .mart:nth-child(6) { animation-delay: 3.5s; }
+    .mart:nth-child(7) { animation-delay: 4.2s; }
+    .mart:nth-child(8) { animation-delay: 4.9s; }
+    .mart:nth-child(9) { animation-delay: 5.6s; }
     .mart-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 13px; }
     .mart code { color: #0F172A; font-size: 13px; font-weight: 800; letter-spacing: -0.2px; }
     .mart p { color: #64748B; font-size: 13px; line-height: 1.35; font-weight: 650; }
@@ -232,6 +244,51 @@
     }
     footer .center { text-align: center; color: #CBD5E1; }
     footer .right { text-align: right; color: #CBD5E1; }
+    .reveal-card {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 520ms ease, transform 520ms ease;
+    }
+    .reveal-card.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .particle { will-change: transform; }
+    .dq-pulse {
+      transform-origin: 528px 378px;
+      animation: dqGatePulse 4.2s ease-in-out infinite;
+    }
+    .ci-dot { will-change: transform; }
+    .oidc-ring {
+      transform-origin: 535px 181px;
+      animation: oidcPulse 2s ease-out infinite;
+    }
+    @keyframes heroGridDrift {
+      from { transform: translate3d(0, 0, 0); }
+      to { transform: translate3d(36px, 36px, 0); }
+    }
+    @keyframes martSweep {
+      0%, 10.5% {
+        border-color: #2563EB;
+        box-shadow: 0 0 0 1.5px #2563EB, 0 14px 30px rgba(37, 99, 235, 0.18);
+      }
+      22%, 100% {
+        border-color: #E2E8F0;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+      }
+    }
+    @keyframes dqGatePulse {
+      0%, 8%, 100% { transform: scale(1); opacity: 0; }
+      3% { transform: scale(1.06); opacity: 0.9; }
+    }
+    @keyframes oidcPulse {
+      from { transform: scale(1); opacity: 0.6; }
+      to { transform: scale(2); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal-card { opacity: 1 !important; transform: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -278,7 +335,15 @@
         <defs>
           <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748B"/></marker>
           <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.08"/></filter>
+          <filter id="particleGlow" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="1.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
         </defs>
+        <path id="flow-powerbi" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L528 690" fill="none" stroke="none"/>
+        <path id="flow-duckdb" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L266 690" fill="none" stroke="none"/>
+        <path id="flow-synapse" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L790 690" fill="none" stroke="none"/>
+        <path id="flow-fail" d="M528 292 L528 334 L528 378 C735 394 772 429 802 470" fill="none" stroke="none"/>
         <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#arrow)">
           <path d="M528 82 L528 124"/>
           <path d="M528 186 L528 228"/>
@@ -301,6 +366,15 @@
           <rect x="95" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
           <rect x="418" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
           <rect x="741" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+        </g>
+        <path class="dq-pulse" d="M528 324 L650 378 L528 432 L406 378 Z" fill="none" stroke="#2563EB" stroke-width="4"/>
+        <g filter="url(#particleGlow)">
+          <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="0s" repeatCount="indefinite"><mpath href="#flow-powerbi"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="0.6s" repeatCount="indefinite"><mpath href="#flow-duckdb"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="1.2s" repeatCount="indefinite"><mpath href="#flow-synapse"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="1.8s" repeatCount="indefinite"><mpath href="#flow-powerbi"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="2.4s" repeatCount="indefinite"><mpath href="#flow-duckdb"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#DC2626"><animateMotion dur="25s" begin="3s" repeatCount="indefinite"><mpath href="#flow-fail"/></animateMotion></circle>
         </g>
         <text x="528" y="44" text-anchor="middle" class="svg-title">Kaggle Olist CSVs</text>
         <text x="528" y="65" text-anchor="middle" class="svg-sub">9 tables, ~100K orders</text>
@@ -413,6 +487,8 @@
       <h2>Automated quality checks and Azure runs without stored cloud secrets</h2>
       <svg class="flow-svg" viewBox="0 0 1056 270" aria-label="GitHub Actions CI CD with OIDC">
         <defs><marker id="flowArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748B"/></marker></defs>
+        <path id="ci-top-flow" d="M93 63 L168 63 L220 63 L346 63" fill="none" stroke="none"/>
+        <path id="ci-azure-flow" d="M93 181 L168 181 L220 181 L313 181 L406 181 L458 181 L535 181 L612 181 L664 181 L728 181 L792 181 L844 181 L941 181" fill="none" stroke="none"/>
         <g fill="#FFFFFF" stroke="#CBD5E1">
           <rect x="18" y="36" width="150" height="54" rx="13"/><rect x="220" y="36" width="252" height="54" rx="13"/>
           <rect x="18" y="154" width="150" height="54" rx="13"/><rect x="220" y="154" width="186" height="54" rx="13"/><rect x="458" y="154" width="154" height="54" rx="13"/>
@@ -421,6 +497,9 @@
         <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#flowArrow)">
           <path d="M168 63 L220 63"/><path d="M168 181 L220 181"/><path d="M406 181 L458 181"/><path d="M612 181 L664 181"/><path d="M792 181 L844 181"/>
         </g>
+        <circle class="oidc-ring" cx="535" cy="181" r="30" fill="none" stroke="#2563EB" stroke-width="2"/>
+        <circle class="ci-dot" r="5" fill="#16A34A"><animateMotion dur="2.5s" repeatCount="indefinite"><mpath href="#ci-top-flow"/></animateMotion></circle>
+        <circle class="ci-dot" r="5" fill="#16A34A"><animateMotion dur="3.5s" repeatCount="indefinite"><mpath href="#ci-azure-flow"/></animateMotion></circle>
         <text x="93" y="68" text-anchor="middle" class="svg-title">GitHub push</text>
         <text x="346" y="61" text-anchor="middle" class="svg-title">ci.yml</text>
         <text x="346" y="79" text-anchor="middle" class="svg-sub">flake8 · black · pytest 13/13</text>
@@ -456,5 +535,45 @@
       <div class="right">Generated 2026</div>
     </footer>
   </main>
+  <script>
+    (() => {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reducedMotion) {
+        document.querySelectorAll("animate, animateMotion").forEach((animation) => animation.remove());
+        return;
+      }
+
+      const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+      const statValues = [1550922, 25, 9, 137234];
+      document.querySelectorAll(".stat strong").forEach((node, index) => {
+        const target = statValues[index];
+        const start = performance.now();
+        const duration = 1400;
+        const tick = (now) => {
+          const progress = Math.min((now - start) / duration, 1);
+          const value = Math.round(target * easeOutCubic(progress));
+          node.textContent = value.toLocaleString("en-US");
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+        node.textContent = "0";
+        requestAnimationFrame(tick);
+      });
+
+      const revealObserver = new IntersectionObserver((entries) => {
+        const visible = entries.filter((entry) => entry.isIntersecting);
+        visible.forEach((entry, index) => {
+          setTimeout(() => {
+            entry.target.classList.add("is-visible");
+            revealObserver.unobserve(entry.target);
+          }, index * 80);
+        });
+      }, { threshold: 0.15 });
+
+      document.querySelectorAll(".stack .card").forEach((card) => {
+        card.classList.add("reveal-card");
+        revealObserver.observe(card);
+      });
+    })();
+  </script>
 </body>
 </html>
