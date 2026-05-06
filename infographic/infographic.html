@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1200, initial-scale=1">
+  <title>Azure E-Commerce Lakehouse Infographic</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    html { width: 1200px; margin: 0; padding: 0; background: #F8FAFC; }
+    body {
+      width: 1200px;
+      height: 3600px;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      background: #F8FAFC;
+      color: #0F172A;
+      font-family: "Inter", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+    .page { width: 1200px; height: 3600px; padding: 30px; }
+    .stack { display: flex; flex-direction: column; gap: 18px; }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .section { padding: 24px; }
+    .label {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 2.4px;
+      text-transform: uppercase;
+      color: #2563EB;
+      margin-bottom: 12px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 {
+      font-size: 64px;
+      line-height: 1;
+      letter-spacing: -2.4px;
+      font-weight: 900;
+      color: #0F172A;
+    }
+    h2 {
+      font-size: 28px;
+      line-height: 1.12;
+      letter-spacing: -0.7px;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.2px; color: #0F172A; }
+    .muted { color: #64748B; }
+    .mono { font-family: "JetBrains Mono", Menlo, monospace; }
+    .hero { position: relative; height: 342px; padding: 34px 38px; }
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.9;
+      background:
+        linear-gradient(#EFF6FF 1px, transparent 1px),
+        linear-gradient(90deg, #EFF6FF 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(120deg, rgba(0,0,0,0.65), transparent 66%);
+    }
+    .hero-content { position: relative; z-index: 1; }
+    .subtitle {
+      width: 820px;
+      margin-top: 18px;
+      color: #334155;
+      font-size: 23px;
+      line-height: 1.38;
+      font-weight: 500;
+    }
+    .badges { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 25px; width: 500px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1px solid #CBD5E1;
+      background: #F8FAFC;
+      color: #0F172A;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .author {
+      position: absolute;
+      right: 30px;
+      bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 15px;
+      border-radius: 999px;
+      color: #334155;
+      border: 1px solid #CBD5E1;
+      background: rgba(255,255,255,0.92);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .icon { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; flex-shrink: 0; }
+    .stat { padding: 20px 18px; min-height: 124px; }
+    .stat strong {
+      display: block;
+      font-size: 39px;
+      line-height: 0.95;
+      letter-spacing: -1.5px;
+      font-weight: 900;
+      color: #0F172A;
+      margin-bottom: 13px;
+    }
+    .stat span { display: block; font-size: 14px; line-height: 1.35; color: #64748B; font-weight: 700; }
+    .accent-blue { border-top: 5px solid #2563EB; }
+    .accent-green { border-top: 5px solid #16A34A; }
+    .accent-amber { border-top: 5px solid #F59E0B; }
+    .accent-gold { border-top: 5px solid #B8860B; }
+    .arch-card { padding: 24px 24px 22px; }
+    .arch-title { display: flex; justify-content: space-between; align-items: end; margin-bottom: 16px; }
+    .arch-title p { color: #64748B; font-size: 15px; font-weight: 600; }
+    .arch-svg { width: 1056px; height: 710px; display: block; margin: 0 auto; }
+    .svg-title { font: 800 17px Inter, sans-serif; fill: #0F172A; }
+    .svg-sub { font: 600 12px Inter, sans-serif; fill: #64748B; }
+    .svg-mono { font: 600 12px "JetBrains Mono", monospace; fill: #475569; }
+    .storage-wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 22px; align-items: center; }
+    .storage-note {
+      padding: 16px 18px;
+      border-radius: 14px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      font-size: 18px;
+      line-height: 1.45;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .storage-note span { color: #2563EB; }
+    .storage-svg { width: 548px; height: 210px; display: block; }
+    .dq-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 20px; }
+    .dq-head p { width: 430px; text-align: right; color: #64748B; font-size: 15px; font-weight: 600; }
+    .rules {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    .rule {
+      min-height: 50px;
+      padding: 8px 9px 7px;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      background: #F8FAFC;
+    }
+    .rule code { display: block; color: #2563EB; font-size: 11px; font-weight: 800; margin-bottom: 5px; }
+    .rule span { display: block; color: #334155; font-size: 11px; line-height: 1.23; font-weight: 650; }
+    .marts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 18px; }
+    .mart {
+      min-height: 112px;
+      padding: 15px;
+      border-radius: 14px;
+      border: 1px solid #E2E8F0;
+      background: #FFFFFF;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .mart-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 13px; }
+    .mart code { color: #0F172A; font-size: 13px; font-weight: 800; letter-spacing: -0.2px; }
+    .mart p { color: #64748B; font-size: 13px; line-height: 1.35; font-weight: 650; }
+    .mart .icon { width: 24px; height: 24px; color: #2563EB; }
+    .flow-svg { width: 1056px; height: 220px; display: block; margin-top: 14px; }
+    .flow-caption {
+      margin-top: 10px;
+      border-left: 4px solid #16A34A;
+      padding: 9px 13px;
+      font-weight: 800;
+      color: #334155;
+      background: #F0FDF4;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    .pbi-pages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 18px; }
+    .thumb {
+      height: 104px;
+      border: 1px solid #CBD5E1;
+      border-radius: 12px;
+      background: #F8FAFC;
+      padding: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .thumb:before {
+      content: "";
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      top: 38px;
+      height: 12px;
+      border-radius: 6px;
+      background: #DBEAFE;
+    }
+    .thumb:after {
+      content: "";
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      width: 58px;
+      height: 42px;
+      border-radius: 8px;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      box-shadow: 70px 0 0 #FFFFFF, 140px 0 0 #FFFFFF;
+    }
+    .thumb strong { position: relative; z-index: 1; display: block; font-size: 12px; line-height: 1.25; font-weight: 850; color: #0F172A; }
+    .pbi-caption { margin-top: 16px; color: #64748B; font-size: 16px; font-weight: 700; text-align: center; }
+    footer {
+      height: 64px;
+      display: grid;
+      grid-template-columns: 1fr 1.25fr 1fr;
+      align-items: center;
+      padding: 0 22px;
+      border-radius: 16px;
+      background: #0F172A;
+      color: #E2E8F0;
+      font-size: 12px;
+      font-weight: 750;
+    }
+    footer .center { text-align: center; color: #CBD5E1; }
+    footer .right { text-align: right; color: #CBD5E1; }
+  </style>
+</head>
+<body>
+  <main class="page stack">
+    <header class="card hero">
+      <div class="hero-grid"></div>
+      <div class="hero-content">
+        <div class="label">DATA ENGINEERING PORTFOLIO</div>
+        <h1>Azure E-Commerce Lakehouse</h1>
+        <p class="subtitle">End-to-end medallion pipeline on ADLS Gen2 — Bronze → Silver → Gold → Power BI</p>
+        <div class="badges">
+          <span class="badge">Python 3.10</span>
+          <span class="badge">Pandas</span>
+          <span class="badge">PyArrow</span>
+          <span class="badge">ADLS Gen2</span>
+          <span class="badge">Apache Parquet</span>
+          <span class="badge">DuckDB</span>
+          <span class="badge">Power BI</span>
+          <span class="badge">GitHub Actions</span>
+        </div>
+      </div>
+      <div class="author">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-6.7a5.3 5.3 0 0 0-1.4-3.7 4.9 4.9 0 0 0-.1-3.7s-1.1-.3-3.8 1.4a13 13 0 0 0-6.9 0C6.3.2 5.2.5 5.2.5a4.9 4.9 0 0 0-.1 3.7 5.3 5.3 0 0 0-1.4 3.7c0 5.2 3.1 6.4 6.1 6.7a3.4 3.4 0 0 0-.9 2.6V22"/></svg>
+        Harish Bhavandla · github.com/harish885/ecommerce-lakehouse
+      </div>
+    </header>
+
+    <section class="stats" aria-label="Headline metrics">
+      <div class="card stat accent-blue"><strong>1,550,922</strong><span>rows ingested across 9 tables</span></div>
+      <div class="card stat accent-green"><strong>25</strong><span>named data quality rules</span></div>
+      <div class="card stat accent-amber"><strong>9</strong><span>Gold business marts</span></div>
+      <div class="card stat accent-gold"><strong>137,234</strong><span>final analytics rows</span></div>
+    </section>
+
+    <section class="card arch-card">
+      <div class="arch-title">
+        <div>
+          <div class="label">Architecture diagram</div>
+          <h2>Medallion flow from raw marketplace data to BI-ready marts</h2>
+        </div>
+        <p>Local development and Azure execution share the same pipeline code.</p>
+      </div>
+      <svg class="arch-svg" viewBox="0 0 1056 780" aria-label="Azure lakehouse medallion architecture">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748B"/></marker>
+          <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.08"/></filter>
+        </defs>
+        <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#arrow)">
+          <path d="M528 82 L528 124"/>
+          <path d="M528 186 L528 228"/>
+          <path d="M528 292 L528 334"/>
+          <path d="M528 418 L528 470"/>
+          <path d="M528 530 L528 584"/>
+          <path d="M528 640 L266 690"/>
+          <path d="M528 640 L528 690"/>
+          <path d="M528 640 L790 690"/>
+          <path d="M630 378 C735 394 772 429 802 470"/>
+        </g>
+        <g filter="url(#soft)">
+          <rect x="298" y="18" width="460" height="64" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+          <rect x="298" y="124" width="460" height="64" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+          <rect x="284" y="228" width="488" height="64" rx="14" fill="#FFFFFF" stroke="#CD7F32" stroke-width="3"/>
+          <path d="M528 324 L650 378 L528 432 L406 378 Z" fill="#FFFFFF" stroke="#2563EB" stroke-width="3"/>
+          <rect x="284" y="470" width="488" height="60" rx="14" fill="#FFFFFF" stroke="#A8A9AD" stroke-width="3"/>
+          <rect x="732" y="470" width="234" height="60" rx="14" fill="#FFFFFF" stroke="#DC2626" stroke-width="3"/>
+          <rect x="250" y="584" width="556" height="56" rx="14" fill="#FFFFFF" stroke="#B8860B" stroke-width="3"/>
+          <rect x="95" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+          <rect x="418" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+          <rect x="741" y="690" width="220" height="58" rx="14" fill="#FFFFFF" stroke="#CBD5E1"/>
+        </g>
+        <text x="528" y="44" text-anchor="middle" class="svg-title">Kaggle Olist CSVs</text>
+        <text x="528" y="65" text-anchor="middle" class="svg-sub">9 tables, ~100K orders</text>
+        <text x="528" y="150" text-anchor="middle" class="svg-title">Raw zone · ADLS Gen2</text>
+        <text x="528" y="171" text-anchor="middle" class="svg-sub">immutable source of truth</text>
+        <text x="528" y="254" text-anchor="middle" class="svg-title">Bronze · Parquet</text>
+        <text x="528" y="274" text-anchor="middle" class="svg-mono">+ ingestion_timestamp · batch_id · 1,550,922 rows</text>
+        <text x="528" y="371" text-anchor="middle" class="svg-title">Data quality gate</text>
+        <text x="528" y="392" text-anchor="middle" class="svg-sub">25 rules</text>
+        <text x="470" y="455" text-anchor="middle" font-family="Inter" font-size="14" font-weight="800" fill="#16A34A">Pass</text>
+        <text x="705" y="438" text-anchor="middle" font-family="Inter" font-size="14" font-weight="800" fill="#DC2626">Fail</text>
+        <text x="528" y="494" text-anchor="middle" class="svg-title">Silver · Parquet</text>
+        <text x="528" y="515" text-anchor="middle" class="svg-sub">cleaned & validated · 568,954 rows</text>
+        <text x="849" y="494" text-anchor="middle" class="svg-title">Rejected zone</text>
+        <text x="849" y="515" text-anchor="middle" class="svg-mono">dq_failure_reason · 6 records</text>
+        <text x="528" y="608" text-anchor="middle" class="svg-title">Gold · Parquet · 9 business marts</text>
+        <text x="528" y="628" text-anchor="middle" class="svg-sub">137,234 rows</text>
+        <text x="205" y="715" text-anchor="middle" class="svg-title">DuckDB SQL</text>
+        <text x="528" y="715" text-anchor="middle" class="svg-title">Power BI report</text>
+        <text x="851" y="710" text-anchor="middle" class="svg-title">Synapse Serverless</text>
+        <text x="851" y="730" text-anchor="middle" class="svg-sub">optional T-SQL</text>
+      </svg>
+    </section>
+
+    <section class="card section">
+      <div class="storage-wrap">
+        <div>
+          <div class="label">The single Storage abstraction</div>
+          <h2>One pipeline interface decides where data lives</h2>
+          <p class="muted" style="margin-top:12px;font-size:16px;line-height:1.5;font-weight:650;">Bronze, Silver, and Gold call the same methods for local files and ADLS Gen2. The environment selects the backend, not the business logic.</p>
+        </div>
+        <svg class="storage-svg" viewBox="0 0 548 238" aria-label="Storage abstraction diagram">
+          <defs><marker id="tinyArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748B"/></marker></defs>
+          <rect x="166" y="15" width="216" height="54" rx="13" fill="#FFFFFF" stroke="#2563EB" stroke-width="3"/>
+          <text x="274" y="48" text-anchor="middle" class="svg-title">Storage (ABC)</text>
+          <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#tinyArrow)">
+            <path d="M274 69 L156 112"/>
+            <path d="M274 69 L392 112"/>
+            <path d="M156 166 L156 204"/>
+            <path d="M392 166 L392 204"/>
+          </g>
+          <rect x="38" y="112" width="236" height="54" rx="13" fill="#F8FAFC" stroke="#CBD5E1"/>
+          <rect x="274" y="112" width="236" height="54" rx="13" fill="#F8FAFC" stroke="#CBD5E1"/>
+          <rect x="72" y="204" width="168" height="28" rx="14" fill="#DBEAFE"/>
+          <rect x="306" y="204" width="172" height="28" rx="14" fill="#DBEAFE"/>
+          <text x="156" y="145" text-anchor="middle" class="svg-title">LocalStorage</text>
+          <text x="392" y="145" text-anchor="middle" class="svg-title">AdlsStorage</text>
+          <text x="156" y="224" text-anchor="middle" class="svg-sub">filesystem</text>
+          <text x="392" y="224" text-anchor="middle" class="svg-sub">ADLS Gen2 · OIDC</text>
+        </svg>
+      </div>
+      <div class="storage-note">One code path, two backends. <span>Adding S3 is one new class.</span></div>
+    </section>
+
+    <section class="card section">
+      <div class="dq-head">
+        <div>
+          <div class="label">Data quality</div>
+          <h2>25 named rules · 6 records quarantined · 0 silently dropped</h2>
+        </div>
+        <p>Checks are named, auditable, and written to rejected records with a failure reason.</p>
+      </div>
+      <div class="rules">
+        <div class="rule"><code>DQ-CUST-001</code><span>customer_id not null</span></div>
+        <div class="rule"><code>DQ-CUST-002</code><span>customer_unique_id not null</span></div>
+        <div class="rule"><code>DQ-CUST-003</code><span>valid Brazilian state code</span></div>
+        <div class="rule"><code>DQ-ORD-001</code><span>order_id not null</span></div>
+        <div class="rule"><code>DQ-ORD-002</code><span>customer_id not null</span></div>
+        <div class="rule"><code>DQ-ORD-003</code><span>known order status</span></div>
+        <div class="rule"><code>DQ-ORD-004</code><span>purchase timestamp not null</span></div>
+        <div class="rule"><code>DQ-ORD-005</code><span>delivered ≥ purchase date</span></div>
+        <div class="rule"><code>DQ-ORD-006</code><span>customer exists in customers</span></div>
+        <div class="rule"><code>DQ-ITM-001</code><span>order_id not null</span></div>
+        <div class="rule"><code>DQ-ITM-004</code><span>price ≥ 0</span></div>
+        <div class="rule"><code>DQ-ITM-005</code><span>freight_value ≥ 0</span></div>
+        <div class="rule"><code>DQ-ITM-006</code><span>order exists in orders</span></div>
+        <div class="rule"><code>DQ-PAY-001</code><span>order_id not null</span></div>
+        <div class="rule"><code>DQ-PAY-002</code><span>payment_value ≥ 0</span></div>
+        <div class="rule"><code>DQ-PAY-003</code><span>installments ≥ 1</span></div>
+        <div class="rule"><code>DQ-PAY-004</code><span>payment_type in allowed set</span></div>
+        <div class="rule"><code>DQ-REV-001</code><span>review_id not null</span></div>
+        <div class="rule"><code>DQ-REV-002</code><span>order_id not null</span></div>
+        <div class="rule"><code>DQ-REV-003</code><span>review_score between 1 and 5</span></div>
+        <div class="rule"><code>DQ-PRD-001</code><span>product_id not null</span></div>
+        <div class="rule"><code>DQ-PRD-002</code><span>product_weight_g &gt; 0 if present</span></div>
+        <div class="rule"><code>DQ-SEL-001</code><span>seller_id not null</span></div>
+        <div class="rule"><code>DQ-GEO-001</code><span>zip prefix not null</span></div>
+        <div class="rule"><code>DQ-CAT-001</code><span>category name not null</span></div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <div class="label">The nine Gold marts</div>
+      <h2>Business-ready analytical tables for Power BI and SQL</h2>
+      <div class="marts">
+        <div class="mart"><div class="mart-top"><code>daily_sales</code><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div><p>How is daily revenue trending?</p></div>
+        <div class="mart"><div class="mart-top"><code>monthly_revenue</code><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="4" width="3" height="13"/></svg></div><p>Are we growing month over month?</p></div>
+        <div class="mart"><div class="mart-top"><code>customer_lifetime_value</code><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><p>Who are our highest-value customers?</p></div>
+        <div class="mart"><div class="mart-top"><code>product_performance</code><svg class="icon" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div><p>Which products and categories drive sales?</p></div>
+        <div class="mart"><div class="mart-top"><code>seller_performance</code><svg class="icon" viewBox="0 0 24 24"><path d="M3 7h18"/><path d="M5 7V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/><path d="M6 7v14"/><path d="M18 7v14"/><path d="M4 21h16"/></svg></div><p>Which sellers actually generate revenue?</p></div>
+        <div class="mart"><div class="mart-top"><code>delivery_delay_analysis</code><svg class="icon" viewBox="0 0 24 24"><path d="M10 17h4V5H2v12h3"/><path d="M14 17h1"/><path d="M15 17h4v-5l-3-4h-2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></div><p>Where are deliveries late?</p></div>
+        <div class="mart"><div class="mart-top"><code>payment_behavior</code><svg class="icon" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><p>How do customers pay and in how many installments?</p></div>
+        <div class="mart"><div class="mart-top"><code>review_score_analysis</code><svg class="icon" viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21 7 14.2 2 9.3l6.9-1Z"/></svg></div><p>What drives review scores?</p></div>
+        <div class="mart"><div class="mart-top"><code>regional_sales</code><svg class="icon" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></div><p>Where in Brazil are we strongest?</p></div>
+      </div>
+    </section>
+
+    <section class="card section">
+      <div class="label">CI/CD with OIDC</div>
+      <h2>Automated quality checks and Azure runs without stored cloud secrets</h2>
+      <svg class="flow-svg" viewBox="0 0 1056 270" aria-label="GitHub Actions CI CD with OIDC">
+        <defs><marker id="flowArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#64748B"/></marker></defs>
+        <g fill="#FFFFFF" stroke="#CBD5E1">
+          <rect x="18" y="36" width="150" height="54" rx="13"/><rect x="220" y="36" width="252" height="54" rx="13"/>
+          <rect x="18" y="154" width="150" height="54" rx="13"/><rect x="220" y="154" width="186" height="54" rx="13"/><rect x="458" y="154" width="154" height="54" rx="13"/>
+          <rect x="664" y="154" width="128" height="54" rx="13"/><rect x="844" y="154" width="194" height="54" rx="13"/>
+        </g>
+        <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#flowArrow)">
+          <path d="M168 63 L220 63"/><path d="M168 181 L220 181"/><path d="M406 181 L458 181"/><path d="M612 181 L664 181"/><path d="M792 181 L844 181"/>
+        </g>
+        <text x="93" y="68" text-anchor="middle" class="svg-title">GitHub push</text>
+        <text x="346" y="61" text-anchor="middle" class="svg-title">ci.yml</text>
+        <text x="346" y="79" text-anchor="middle" class="svg-sub">flake8 · black · pytest 13/13</text>
+        <text x="93" y="186" text-anchor="middle" class="svg-title">Manual run</text>
+        <text x="313" y="179" text-anchor="middle" class="svg-title">azure-medallion.yml</text>
+        <text x="313" y="197" text-anchor="middle" class="svg-sub">Bronze → Silver → Gold</text>
+        <text x="535" y="179" text-anchor="middle" class="svg-title">OIDC</text>
+        <text x="535" y="197" text-anchor="middle" class="svg-sub">federation</text>
+        <text x="728" y="186" text-anchor="middle" class="svg-title">Azure AD</text>
+        <text x="941" y="179" text-anchor="middle" class="svg-title">ADLS Gen2</text>
+        <text x="941" y="197" text-anchor="middle" class="svg-sub">verify 9 Gold .parquet files</text>
+      </svg>
+      <div class="flow-caption">No stored secrets. Federated credential trusts only this repo + branch.</div>
+    </section>
+
+    <section class="card section">
+      <div class="label">Power BI reporting layer</div>
+      <h2>Six report pages bound to trusted Gold marts</h2>
+      <div class="pbi-pages">
+        <div class="thumb"><strong>1. Executive Overview</strong></div>
+        <div class="thumb"><strong>2. Revenue Trends</strong></div>
+        <div class="thumb"><strong>3. Customer Lifetime Value</strong></div>
+        <div class="thumb"><strong>4. Product &amp; Seller Performance</strong></div>
+        <div class="thumb"><strong>5. Delivery &amp; Customer Experience</strong></div>
+        <div class="thumb"><strong>6. Payment &amp; Regional Sales</strong></div>
+      </div>
+      <p class="pbi-caption">Six pages bound to nine Gold marts via a single fnLoadGoldTable Power Query helper and 30+ DAX measures.</p>
+    </section>
+
+    <footer>
+      <div>github.com/harish885/ecommerce-lakehouse</div>
+      <div class="center">Brazilian Olist E-Commerce · 2016–2018 · public Kaggle dataset</div>
+      <div class="right">Generated 2026</div>
+    </footer>
+  </main>
+</body>
+</html>
