@@ -1,6 +1,7 @@
 # Azure E-Commerce Lakehouse: End-to-End Data Engineering Platform
 
-[![CI Pipeline](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml)
+[![CI Pipeline](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/ci.yml)
+[![Azure Medallion Pipeline](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/azure-medallion.yml/badge.svg)](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/azure-medallion.yml)
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![Azure](https://img.shields.io/badge/Azure-ADLS%20Gen2-0078D4)
 ![Architecture](https://img.shields.io/badge/Architecture-Medallion-gold)
@@ -89,6 +90,7 @@ Source: [Kaggle — Olist E-Commerce](https://www.kaggle.com/datasets/olistbr/br
 | Silver | `src/transformation/silver_transformations.py` | Complete | 9 clean Parquet tables + rejected records |
 | Gold | `src/transformation/gold_transformations.py` | Complete | 9 analytics Parquet tables |
 | SQL | `sql/*.sql` | Complete | 7 DuckDB query files over Gold Parquet |
+| Azure CI/CD | `.github/workflows/azure-medallion.yml` | Ready | Manual GitHub Actions run of Bronze → Silver → Gold on ADLS Gen2 |
 
 ### Gold Analytics Tables
 

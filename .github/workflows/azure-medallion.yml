@@ -1,0 +1,91 @@
+name: Azure Medallion Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: "Run unit tests before the Azure pipeline"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.10"
+  AZURE_STORAGE_ACCOUNT: stecomlakehousehb01
+  AZURE_FILE_SYSTEM: olist-lakehouse
+
+jobs:
+  run-medallion-pipeline:
+    runs-on: ubuntu-latest
+    name: Run Bronze, Silver, and Gold on Azure
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        if: ${{ inputs.run_tests == 'true' }}
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Azure login with OpenID Connect
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Show Azure context
+        run: |
+          az account show --query "{subscription:name, tenant:tenantId, user:user.name}" --output table
+
+      - name: Run Bronze ingestion
+        run: |
+          python src/ingestion/bronze_ingestion.py --environment azure
+
+      - name: Run Silver transformation
+        run: |
+          python src/transformation/silver_transformations.py --environment azure
+
+      - name: Run Gold transformation
+        run: |
+          python src/transformation/gold_transformations.py --environment azure
+
+      - name: Verify Gold Parquet outputs
+        run: |
+          GOLD_FILE_COUNT=$(az storage fs file list \
+            --account-name "$AZURE_STORAGE_ACCOUNT" \
+            --file-system "$AZURE_FILE_SYSTEM" \
+            --path gold/olist \
+            --recursive true \
+            --auth-mode login \
+            --query "length([?ends_with(name, '.parquet')])" \
+            --output tsv)
+
+          echo "Gold Parquet files found: ${GOLD_FILE_COUNT}"
+          test "$GOLD_FILE_COUNT" -eq 9
