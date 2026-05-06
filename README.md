@@ -291,4 +291,4 @@ Six reporting pages connect directly to Gold Parquet via the Power BI Parquet co
 
 **Harish Bhavandla**  
 Master's in Data Science for Management · Università Cattolica del Sacro Cuore, Milan  
-[LinkedIn](https://linkedin.com/in/harishbhavandla) · [GitHub](https://github.com/harishbhavandla) · harish.bhavandla@gmail.com
+[LinkedIn](https://www.linkedin.com/in/harish-bhavandla/) · [GitHub](https://github.com/harish885) · bhavandlaharish@gmail.com
