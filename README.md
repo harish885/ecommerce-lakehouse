@@ -6,11 +6,12 @@
 ![Azure](https://img.shields.io/badge/Azure-ADLS%20Gen2-0078D4?logo=microsoftazure&logoColor=white)
 ![Parquet](https://img.shields.io/badge/Storage-Apache%20Parquet-50ABF1?logo=apacheparquet&logoColor=white)
 ![DuckDB](https://img.shields.io/badge/SQL-DuckDB-FFF000?logo=duckdb&logoColor=black)
+![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-FF4B4B?logo=streamlit&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-22863A)
 
 End-to-end cloud data engineering platform on **Azure Data Lake Storage Gen2**, implementing the **Medallion Architecture** (Bronze → Silver → Gold) to transform raw Brazilian Olist e-commerce data into analytics-ready business intelligence.
 
-**1,550,922 rows ingested · 25 data quality rules · 9 Gold analytics marts · 13 unit tests passing · CI/CD on GitHub Actions**
+**1,550,922 rows ingested · 25 data quality rules · 9 Gold analytics marts · Streamlit dashboard · 13 unit tests passing · CI/CD on GitHub Actions**
 
 ---
 
@@ -25,7 +26,8 @@ flowchart TD
     D -->|"❌ Fail"| F["🚫 Rejected Records<br/>dq_failure_reason column<br/>6 records quarantined"]
     E --> G["🥇 Gold Layer · Parquet<br/>Business Analytics Marts<br/>137,234 analytics rows · 9/9 SUCCESS"]
     G --> H["🔍 DuckDB SQL<br/>7 query files"]
-    G --> I["📊 Power BI Dashboard<br/>6 reporting pages"]
+    G --> I["📊 Streamlit Dashboard<br/>5 executive analytics pages"]
+    G --> L["📈 Power BI Dashboard<br/>Optional reporting layer"]
     C --> J["📋 Ingestion Log<br/>logs/bronze_ingestion_log.csv"]
     E --> K["📋 DQ Report<br/>logs/data_quality_report.csv"]
 
@@ -58,7 +60,7 @@ flowchart TD
 | Processing       | Python 3.10, Pandas                     |
 | Storage Format   | Apache Parquet (PyArrow)                |
 | SQL Analytics    | DuckDB / Azure Synapse Serverless       |
-| Dashboarding     | Power BI Desktop                        |
+| Dashboarding     | Streamlit, Plotly, Power BI Desktop     |
 | CI/CD            | GitHub Actions (2 workflows)            |
 | Testing          | pytest — 13 unit tests, all passing     |
 | Config           | YAML (config/config.yaml)               |
@@ -179,6 +181,26 @@ The same queries run on **Azure Synapse Serverless SQL** by replacing the file p
 
 ---
 
+## Executive Dashboard
+
+`dashboard/app.py` provides a Streamlit dashboard that reads the Gold Parquet marts directly from `data/gold/`.
+
+It includes five analytics views:
+
+| Page                 | Focus                                                    |
+|----------------------|----------------------------------------------------------|
+| Revenue              | Daily revenue, monthly revenue, AOV, order volume        |
+| Customers            | CLV leaderboard, repeat customers, state concentration    |
+| Products and Sellers | Category revenue, seller performance, freight metrics    |
+| Operations           | Delivery delays, payment behavior, review distribution   |
+| Regions              | City/state sales, delivery quality, customer reach        |
+
+```bash
+streamlit run dashboard/app.py
+```
+
+---
+
 ## CI/CD
 
 Two GitHub Actions workflows:
@@ -204,6 +226,7 @@ ecommerce-lakehouse/
 │   ├── ingestion/              # bronze_ingestion.py
 │   ├── transformation/         # silver_transformations.py, gold_transformations.py
 │   └── utils/                  # logger.py
+├── dashboard/                  # Streamlit executive dashboard
 ├── sql/                        # 7 DuckDB analytics queries
 ├── tests/                      # 13 pytest unit tests
 ├── docs/                       # Architecture, data dictionary, DQ rules, Azure guide
@@ -241,6 +264,9 @@ python src/transformation/gold_transformations.py
 
 # Run SQL analytics
 duckdb < sql/01_revenue_trends.sql
+
+# Launch dashboard
+streamlit run dashboard/app.py
 
 # Run tests
 pytest tests/ -v

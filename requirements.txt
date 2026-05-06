@@ -10,6 +10,10 @@ azure-storage-blob==12.20.0
 # SQL analytics
 duckdb==0.10.3
 
+# Dashboard
+streamlit==1.37.1
+plotly==5.24.1
+
 # Configuration
 python-dotenv==1.0.1
 pyyaml==6.0.1
