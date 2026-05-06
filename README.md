@@ -1,7 +1,7 @@
 # Azure E-Commerce Lakehouse
 
-[![CI Pipeline](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/ci.yml)
-[![Azure Medallion Pipeline](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/azure-medallion.yml/badge.svg)](https://github.com/harishbhavandla/ecommerce-lakehouse/actions/workflows/azure-medallion.yml)
+[![CI Pipeline](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/ci.yml/badge.svg)](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/ci.yml)
+[![Azure Medallion Pipeline](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/azure-medallion.yml/badge.svg)](https://github.com/harish885/ecommerce-lakehouse/actions/workflows/azure-medallion.yml)
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![Azure](https://img.shields.io/badge/Azure-ADLS%20Gen2-0078D4?logo=microsoftazure&logoColor=white)
 ![Parquet](https://img.shields.io/badge/Storage-Apache%20Parquet-50ABF1?logo=apacheparquet&logoColor=white)
