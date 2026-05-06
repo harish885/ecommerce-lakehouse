@@ -19,6 +19,13 @@ function hasFfmpeg() {
   return result.status === 0;
 }
 
+async function loadPage(browser, fileUrl) {
+  const page = await browser.newPage();
+  await page.goto(fileUrl, { waitUntil: "networkidle0" });
+  await sleep(SETTLE_MS);
+  return page;
+}
+
 async function captureFrames(page, framesDir) {
   const client = await page.target().createCDPSession();
   let frameIndex = 0;
@@ -30,7 +37,10 @@ async function captureFrames(page, framesDir) {
   client.on("Page.screencastFrame", async (event) => {
     const frameNumber = frameIndex;
     frameIndex += 1;
-    const filename = path.join(framesDir, `frame-${String(frameNumber).padStart(5, "0")}.png`);
+    const filename = path.join(
+      framesDir,
+      `frame-${String(frameNumber).padStart(5, "0")}.png`
+    );
     fs.writeFileSync(filename, Buffer.from(event.data, "base64"));
     await client.send("Page.screencastFrameAck", { sessionId: event.sessionId });
     if (frameIndex >= TARGET_FRAMES) resolveDone();
@@ -58,23 +68,34 @@ async function captureFrames(page, framesDir) {
   });
 
   try {
-    const page = await browser.newPage();
-    const filePath = `file://${path.resolve(__dirname, "infographic.html")}`;
-    await page.goto(filePath, { waitUntil: "networkidle0" });
-    await sleep(SETTLE_MS);
+    const fileUrl = `file://${path.resolve(__dirname, "infographic.html")}`;
+
+    // ── 1. Static PNG capture (animations paused) ─────────────────────
+    const pngPage = await loadPage(browser, fileUrl);
+    await pngPage.evaluate(() => {
+      // Halt every running SVG animation so the PNG is a clean still frame.
+      document.querySelectorAll("animate, animateMotion, animateTransform").forEach((node) => {
+        try {
+          node.endElement?.();
+        } catch (_) {
+          /* ignore — node may not be an SMIL element */
+        }
+      });
+      // Disable all CSS animations & transitions via a body-level class.
+      document.body.classList.add("no-anim");
+    });
+    // Give the browser a frame to apply the no-anim class before the snapshot.
+    await sleep(150);
 
     const pngPath = path.resolve(__dirname, "infographic.png");
-    await page.screenshot({
+    await pngPage.screenshot({
       path: pngPath,
-      clip: {
-        x: 0,
-        y: 0,
-        width: WIDTH,
-        height: HEIGHT,
-      },
+      clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT },
     });
+    await pngPage.close();
     console.log(`PNG exported: ${pngPath}`);
 
+    // ── 2. MP4 capture (fresh page, animations live) ──────────────────
     if (!hasFfmpeg()) {
       console.log(
         "ffmpeg was not found, so the MP4 export was skipped. Install ffmpeg, then run `node render.js` again."
@@ -82,8 +103,12 @@ async function captureFrames(page, framesDir) {
       return;
     }
 
-    const framesDir = fs.mkdtempSync(path.join(os.tmpdir(), "lakehouse-infographic-"));
-    const framesCaptured = await captureFrames(page, framesDir);
+    const mp4Page = await loadPage(browser, fileUrl);
+
+    const framesDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "lakehouse-infographic-")
+    );
+    const framesCaptured = await captureFrames(mp4Page, framesDir);
     if (framesCaptured === 0) {
       console.log("No screencast frames were captured. PNG export still completed.");
       return;
@@ -100,6 +125,8 @@ async function captureFrames(page, framesDir) {
         path.join(framesDir, "frame-%05d.png"),
         "-pix_fmt",
         "yuv420p",
+        "-vf",
+        "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         mp4Path,
       ],
       { stdio: "inherit" }

@@ -198,37 +198,18 @@
     }
     .pbi-pages { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 18px; }
     .thumb {
-      height: 104px;
+      height: 116px;
       border: 1px solid #CBD5E1;
       border-radius: 12px;
       background: #F8FAFC;
-      padding: 12px;
+      padding: 10px 10px 8px;
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
     }
-    .thumb:before {
-      content: "";
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      top: 38px;
-      height: 12px;
-      border-radius: 6px;
-      background: #DBEAFE;
-    }
-    .thumb:after {
-      content: "";
-      position: absolute;
-      left: 12px;
-      bottom: 12px;
-      width: 58px;
-      height: 42px;
-      border-radius: 8px;
-      background: #FFFFFF;
-      border: 1px solid #E2E8F0;
-      box-shadow: 70px 0 0 #FFFFFF, 140px 0 0 #FFFFFF;
-    }
-    .thumb strong { position: relative; z-index: 1; display: block; font-size: 12px; line-height: 1.25; font-weight: 850; color: #0F172A; }
+    .thumb strong { display: block; font-size: 12px; line-height: 1.25; font-weight: 850; color: #0F172A; }
     .pbi-caption { margin-top: 16px; color: #64748B; font-size: 16px; font-weight: 700; text-align: center; }
     footer {
       height: 64px;
@@ -253,15 +234,18 @@
       opacity: 1;
       transform: translateY(0);
     }
-    .particle { will-change: transform; }
     .dq-pulse {
       transform-origin: 528px 378px;
       animation: dqGatePulse 4.2s ease-in-out infinite;
     }
-    .ci-dot { will-change: transform; }
     .oidc-ring {
       transform-origin: 535px 181px;
-      animation: oidcPulse 2s ease-out infinite;
+      animation: oidcPulse 3s ease-out infinite;
+    }
+    .particle-label {
+      font: 700 11px "JetBrains Mono", Menlo, monospace;
+      pointer-events: none;
+      opacity: 0.9;
     }
     @keyframes heroGridDrift {
       from { transform: translate3d(0, 0, 0); }
@@ -269,8 +253,8 @@
     }
     @keyframes martSweep {
       0%, 10.5% {
-        border-color: #2563EB;
-        box-shadow: 0 0 0 1.5px #2563EB, 0 14px 30px rgba(37, 99, 235, 0.18);
+        border-color: #B8860B;
+        box-shadow: 0 0 0 1.5px #B8860B, 0 14px 30px rgba(184, 134, 11, 0.22);
       }
       22%, 100% {
         border-color: #E2E8F0;
@@ -284,6 +268,42 @@
     @keyframes oidcPulse {
       from { transform: scale(1); opacity: 0.6; }
       to { transform: scale(2); opacity: 0; }
+    }
+    @keyframes scrollBounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(4px); }
+    }
+    .scroll-hint {
+      margin-top: 18px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: #94A3B8;
+      animation: scrollBounce 1.4s ease-in-out infinite;
+    }
+    .scroll-hint svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    body.no-anim *,
+    body.no-anim *::before,
+    body.no-anim *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+    .pbi-mock {
+      width: 100%;
+      height: 56px;
+      margin-top: 6px;
+      display: block;
+    }
+    .pbi-mock path,
+    .pbi-mock rect,
+    .pbi-mock polyline,
+    .pbi-mock circle,
+    .pbi-mock line {
+      vector-effect: non-scaling-stroke;
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -309,6 +329,10 @@
           <span class="badge">Power BI</span>
           <span class="badge">GitHub Actions</span>
         </div>
+        <span class="scroll-hint" aria-hidden="true">
+          Scroll for full architecture
+          <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
       </div>
       <div class="author">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.9-2.6c3-.3 6.1-1.5 6.1-6.7a5.3 5.3 0 0 0-1.4-3.7 4.9 4.9 0 0 0-.1-3.7s-1.1-.3-3.8 1.4a13 13 0 0 0-6.9 0C6.3.2 5.2.5 5.2.5a4.9 4.9 0 0 0-.1 3.7 5.3 5.3 0 0 0-1.4 3.7c0 5.2 3.1 6.4 6.1 6.7a3.4 3.4 0 0 0-.9 2.6V22"/></svg>
@@ -340,9 +364,10 @@
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
+        <path id="flow-pass" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640" fill="none" stroke="none"/>
         <path id="flow-powerbi" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L528 690" fill="none" stroke="none"/>
-        <path id="flow-duckdb" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L266 690" fill="none" stroke="none"/>
-        <path id="flow-synapse" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L790 690" fill="none" stroke="none"/>
+        <path id="flow-duckdb" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L508 640 L266 690" fill="none" stroke="none"/>
+        <path id="flow-synapse" d="M528 292 L528 334 L528 418 L528 470 L528 530 L528 584 L528 640 L548 640 L790 690" fill="none" stroke="none"/>
         <path id="flow-fail" d="M528 292 L528 334 L528 378 C735 394 772 429 802 470" fill="none" stroke="none"/>
         <g stroke="#64748B" stroke-width="2" fill="none" marker-end="url(#arrow)">
           <path d="M528 82 L528 124"/>
@@ -369,12 +394,23 @@
         </g>
         <path class="dq-pulse" d="M528 324 L650 378 L528 432 L406 378 Z" fill="none" stroke="#2563EB" stroke-width="4"/>
         <g filter="url(#particleGlow)">
+          <!-- Pass particles travelling Bronze → DQ → Silver → Gold (the busy main spine) -->
+          <circle class="particle" r="5" fill="#16A34A"><animateMotion dur="2.4s" begin="0s" repeatCount="indefinite"><mpath href="#flow-pass"/></animateMotion></circle>
+          <circle class="particle" r="5" fill="#16A34A"><animateMotion dur="2.4s" begin="1.2s" repeatCount="indefinite"><mpath href="#flow-pass"/></animateMotion></circle>
+          <!-- Particles fanning out from Gold to the three downstream destinations -->
           <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="0s" repeatCount="indefinite"><mpath href="#flow-powerbi"/></animateMotion></circle>
           <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="0.6s" repeatCount="indefinite"><mpath href="#flow-duckdb"/></animateMotion></circle>
           <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="1.2s" repeatCount="indefinite"><mpath href="#flow-synapse"/></animateMotion></circle>
           <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="1.8s" repeatCount="indefinite"><mpath href="#flow-powerbi"/></animateMotion></circle>
           <circle class="particle" r="5" fill="#2563EB"><animateMotion dur="4.2s" begin="2.4s" repeatCount="indefinite"><mpath href="#flow-duckdb"/></animateMotion></circle>
-          <circle class="particle" r="5" fill="#DC2626"><animateMotion dur="25s" begin="3s" repeatCount="indefinite"><mpath href="#flow-fail"/></animateMotion></circle>
+          <!-- Fail particle: visible cadence so it shows up in any 8-second capture -->
+          <circle class="particle" r="5" fill="#DC2626"><animateMotion dur="6s" begin="0.8s" repeatCount="indefinite"><mpath href="#flow-fail"/></animateMotion></circle>
+        </g>
+        <!-- Floating row-count labels — locked to one particle per type -->
+        <g class="particle-label-host">
+          <text class="particle-label" fill="#2563EB" text-anchor="start" y="-10" x="12">+1 row<animateMotion dur="4.2s" begin="0s" repeatCount="indefinite"><mpath href="#flow-powerbi"/></animateMotion></text>
+          <text class="particle-label" fill="#16A34A" text-anchor="start" y="-10" x="12">+1 clean<animateMotion dur="2.4s" begin="0s" repeatCount="indefinite"><mpath href="#flow-pass"/></animateMotion></text>
+          <text class="particle-label" fill="#DC2626" text-anchor="start" y="-10" x="12">−1 rejected<animateMotion dur="6s" begin="0.8s" repeatCount="indefinite"><mpath href="#flow-fail"/></animateMotion></text>
         </g>
         <text x="528" y="44" text-anchor="middle" class="svg-title">Kaggle Olist CSVs</text>
         <text x="528" y="65" text-anchor="middle" class="svg-sub">9 tables, ~100K orders</text>
@@ -519,12 +555,66 @@
       <div class="label">Power BI reporting layer</div>
       <h2>Six report pages bound to trusted Gold marts</h2>
       <div class="pbi-pages">
-        <div class="thumb"><strong>1. Executive Overview</strong></div>
-        <div class="thumb"><strong>2. Revenue Trends</strong></div>
-        <div class="thumb"><strong>3. Customer Lifetime Value</strong></div>
-        <div class="thumb"><strong>4. Product &amp; Seller Performance</strong></div>
-        <div class="thumb"><strong>5. Delivery &amp; Customer Experience</strong></div>
-        <div class="thumb"><strong>6. Payment &amp; Regional Sales</strong></div>
+        <div class="thumb">
+          <strong>1. Executive Overview</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" stroke="#2563EB" stroke-width="2" fill="none" aria-hidden="true">
+            <rect x="4" y="4" width="20" height="14" rx="2"/>
+            <rect x="28" y="4" width="20" height="14" rx="2"/>
+            <rect x="52" y="4" width="20" height="14" rx="2"/>
+            <rect x="76" y="4" width="20" height="14" rx="2"/>
+            <polyline points="6,42 22,34 38,38 54,28 70,32 90,18"/>
+          </svg>
+        </div>
+        <div class="thumb">
+          <strong>2. Revenue Trends</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" fill="none" aria-hidden="true">
+            <line x1="6" y1="46" x2="94" y2="46" stroke="#CBD5E1" stroke-width="1"/>
+            <line x1="6" y1="6" x2="6" y2="46" stroke="#CBD5E1" stroke-width="1"/>
+            <polyline points="6,42 20,38 34,30 48,32 62,22 78,16 92,10" stroke="#2563EB" stroke-width="2"/>
+            <circle cx="92" cy="10" r="2.5" fill="#2563EB"/>
+          </svg>
+        </div>
+        <div class="thumb">
+          <strong>3. Customer Lifetime Value</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" stroke="#2563EB" stroke-width="1.5" fill="#DBEAFE" aria-hidden="true">
+            <rect x="6" y="8"  width="14" height="36" rx="1"/>
+            <rect x="24" y="14" width="14" height="30" rx="1"/>
+            <rect x="42" y="22" width="14" height="22" rx="1"/>
+            <rect x="60" y="30" width="14" height="14" rx="1"/>
+            <rect x="78" y="36" width="14" height="8"  rx="1"/>
+          </svg>
+        </div>
+        <div class="thumb">
+          <strong>4. Product &amp; Seller Performance</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" stroke="#2563EB" stroke-width="1.5" fill="#DBEAFE" aria-hidden="true">
+            <rect x="4" y="4"  width="52" height="42" rx="2"/>
+            <rect x="60" y="4"  width="36" height="22" rx="2"/>
+            <rect x="60" y="30" width="20" height="16" rx="2"/>
+            <rect x="84" y="30" width="12" height="16" rx="2"/>
+          </svg>
+        </div>
+        <div class="thumb">
+          <strong>5. Delivery &amp; Experience</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" stroke="#F59E0B" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+            <g transform="translate(6 14) scale(0.9)" fill="#F59E0B"><path d="M10 1 12.4 6.5 18 7.2 13.5 11.1 14.8 16.7 10 13.6 5.2 16.7 6.5 11.1 2 7.2 7.6 6.5 Z"/></g>
+            <g transform="translate(26 14) scale(0.9)" fill="#F59E0B"><path d="M10 1 12.4 6.5 18 7.2 13.5 11.1 14.8 16.7 10 13.6 5.2 16.7 6.5 11.1 2 7.2 7.6 6.5 Z"/></g>
+            <g transform="translate(46 14) scale(0.9)" fill="#F59E0B"><path d="M10 1 12.4 6.5 18 7.2 13.5 11.1 14.8 16.7 10 13.6 5.2 16.7 6.5 11.1 2 7.2 7.6 6.5 Z"/></g>
+            <g transform="translate(66 14) scale(0.9)" fill="none"><path d="M10 1 12.4 6.5 18 7.2 13.5 11.1 14.8 16.7 10 13.6 5.2 16.7 6.5 11.1 2 7.2 7.6 6.5 Z"/></g>
+            <g transform="translate(86 14) scale(0.9)" fill="none"><path d="M10 1 12.4 6.5 18 7.2 13.5 11.1 14.8 16.7 10 13.6 5.2 16.7 6.5 11.1 2 7.2 7.6 6.5 Z"/></g>
+          </svg>
+        </div>
+        <div class="thumb">
+          <strong>6. Payment &amp; Regional Sales</strong>
+          <svg class="pbi-mock" viewBox="0 0 100 50" fill="none" aria-hidden="true">
+            <circle cx="22" cy="26" r="14" stroke="#CBD5E1" stroke-width="4"/>
+            <path d="M22 12 A14 14 0 0 1 35 30" stroke="#2563EB" stroke-width="4" stroke-linecap="round"/>
+            <path d="M22 12 A14 14 0 0 0 8 24" stroke="#16A34A" stroke-width="4" stroke-linecap="round"/>
+            <path d="M58 14 q10 -8 22 -2 t14 14 q-2 12 -14 14 t-22 -6 q-4 -10 0 -20 Z" stroke="#2563EB" stroke-width="2" fill="#DBEAFE"/>
+            <circle cx="74" cy="26" r="2" fill="#2563EB"/>
+            <circle cx="84" cy="32" r="1.5" fill="#2563EB"/>
+            <circle cx="68" cy="34" r="1.5" fill="#2563EB"/>
+          </svg>
+        </div>
       </div>
       <p class="pbi-caption">Six pages bound to nine Gold marts via a single fnLoadGoldTable Power Query helper and 30+ DAX measures.</p>
     </section>
