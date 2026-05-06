@@ -18,6 +18,7 @@ permissions:
 
 env:
   PYTHON_VERSION: "3.10"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
   AZURE_STORAGE_ACCOUNT: stecomlakehousehb01
   AZURE_FILE_SYSTEM: olist-lakehouse
 
